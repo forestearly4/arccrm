@@ -1,0 +1,6 @@
+# arcCRM — Netlify config
+# Routes /api/proxy to the edge function (Deno runtime, unrestricted outbound fetch)
+
+[[edge_functions]]
+  path = "/api/proxy"
+  function = "proxy"
