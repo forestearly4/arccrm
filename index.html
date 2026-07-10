@@ -513,10 +513,12 @@ function setupUserUI(){
 populateLoginSelect();
 
 // ══════════════════════════════════════════════════
-// PROXY API — all calls go through /api/proxy
+// ══════════════════════════════════════════════════
+// API ARCHITECTURE
+// Katana: read from /katana-data.json (written by Netlify sync function)
+// ClickUp + Dropbox: go through Val Town proxy
 // ══════════════════════════════════════════════════
 const PROXY='https://forestearly-arccrm.web.val.run';
-const KATANA='https://open-api.katanamrp.com/v1';
 const CLICKUP='https://api.clickup.com/api/v2';
 const DBX='https://api.dropboxapi.com/2';
 const DBX_CONTENT='https://content.dropboxapi.com/2';
@@ -528,8 +530,15 @@ async function proxyFetch({url,method='GET',headers={},body}){
   if(!r.ok)throw new Error(data?.error||`HTTP ${r.status}`);
   return data;
 }
-async function katanaGet(path){const d=await proxyFetch({url:KATANA+path,headers:{'Authorization':`Bearer ${state.katanaKey}`}});return d;}
-async function katanaPost(path,body){const d=await proxyFetch({url:KATANA+path,method:'POST',headers:{'Authorization':`Bearer ${state.katanaKey}`},body});return d;}
+
+// Katana — POST customer via Netlify function (which uses Claude MCP)
+async function katanaCreateCustomer(payload){
+  const r=await fetch('/.netlify/functions/create-customer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  const d=await r.json();
+  if(!r.ok)throw new Error(d.error||`Error ${r.status}`);
+  return d;
+}
+
 async function clickupGet(path){const d=await proxyFetch({url:CLICKUP+path,headers:{'Authorization':state.clickupKey}});return d;}
 async function dropboxPost(path,body){const d=await proxyFetch({url:DBX+path,method:'POST',headers:{'Authorization':`Bearer ${state.dropboxKey}`},body});return d;}
 async function dropboxUpload(filePath,arrayBuffer){
@@ -540,18 +549,56 @@ async function dropboxUpload(filePath,arrayBuffer){
 
 // ══════════════════════════════════════════════════
 // SYNC
+// Katana: trigger Netlify function which uses Claude MCP, then read JSON file
+// ClickUp + Dropbox: direct proxy calls
 // ══════════════════════════════════════════════════
 async function syncAll(){
-  if(!state.katanaKey&&!state.clickupKey&&!state.dropboxKey){toast('Add API keys in Admin → API Settings','info');return;}
   const btn=document.getElementById('sync-btn'),icon=document.getElementById('sync-icon');
   btn.disabled=true;icon.classList.add('spin');state.errors={};
-  if(state.katanaKey){
+
+  // ── Katana: trigger sync function then read result ──
+  try{
+    toast('Syncing Katana via Claude MCP…','info',8000);
+    const syncRes=await fetch('/.netlify/functions/sync',{method:'GET'});
+    const syncData=await syncRes.json();
+    if(!syncRes.ok)throw new Error(syncData.error||'Sync function failed');
+
+    // Read the freshly written JSON file
+    const katanaRes=await fetch('/katana-data.json?t='+Date.now());
+    if(!katanaRes.ok)throw new Error('Could not read katana-data.json');
+    const katana=await katanaRes.json();
+
+    state.data.customers=katana.customers||[];
+    state.data.sales_orders=katana.sales_orders||[];
+    state.data.mfg_orders=katana.manufacturing_orders||[];
+    state.data.products=katana.products||[];
+    state.lastKatanaSync=katana.synced_at;
+    document.getElementById('katana-dot').className='api-dot connected';
+    toast(`Katana synced — ${state.data.customers.length} customers, ${state.data.sales_orders.length} orders`,'success');
+  }catch(e){
+    // If sync function fails, try reading existing cached file
     try{
-      const[cust,so,mo,prod]=await Promise.all([katanaGet('/customers?limit=100'),katanaGet('/sales_orders?limit=100'),katanaGet('/manufacturing_orders?limit=100'),katanaGet('/products?limit=100')]);
-      state.data.customers=cust.data||cust||[];state.data.sales_orders=so.data||so||[];state.data.mfg_orders=mo.data||mo||[];state.data.products=prod.data||prod||[];
-      document.getElementById('katana-dot').className='api-dot connected';toast(`Synced ${state.data.customers.length} customers`,'success');
-    }catch(e){state.errors.katana=e.message;document.getElementById('katana-dot').className='api-dot error';toast('Katana: '+e.message,'error');}
+      const katanaRes=await fetch('/katana-data.json?t='+Date.now());
+      if(katanaRes.ok){
+        const katana=await katanaRes.json();
+        state.data.customers=katana.customers||[];
+        state.data.sales_orders=katana.sales_orders||[];
+        state.data.mfg_orders=katana.manufacturing_orders||[];
+        state.data.products=katana.products||[];
+        state.lastKatanaSync=katana.synced_at;
+        document.getElementById('katana-dot').className='api-dot connected';
+        toast('Loaded cached Katana data','info');
+      }else{
+        throw new Error('No cached data available');
+      }
+    }catch(e2){
+      state.errors.katana=e.message;
+      document.getElementById('katana-dot').className='api-dot error';
+      toast('Katana: '+e.message,'error');
+    }
   }
+
+  // ── ClickUp ──
   if(state.clickupKey&&state.clickupTeam){
     try{
       const sp=await clickupGet(`/team/${state.clickupTeam}/space?archived=false`);state.data.spaces=sp.spaces||[];
@@ -559,15 +606,36 @@ async function syncAll(){
       for(const s of state.data.spaces.slice(0,5)){try{const fr=await clickupGet(`/space/${s.id}/folder?archived=false`);for(const f of(fr.folders||[]).slice(0,5)){const lr=await clickupGet(`/folder/${f.id}/list?archived=false`);allL=allL.concat(lr.lists||[]);}const nfl=await clickupGet(`/space/${s.id}/list?archived=false`);allL=allL.concat(nfl.lists||[]);}catch(e){}}
       state.data.lists=allL.slice(0,30);
       for(const l of allL.slice(0,5)){try{const tr=await clickupGet(`/list/${l.id}/task?archived=false&include_closed=false&limit=50`);allT=allT.concat(tr.tasks||[]);}catch(e){}}
-      state.data.tasks=allT.slice(0,100);document.getElementById('clickup-dot').className='api-dot connected';toast(`Synced ${state.data.tasks.length} tasks`,'success');
+      state.data.tasks=allT.slice(0,100);document.getElementById('clickup-dot').className='api-dot connected';toast(`Synced ${state.data.tasks.length} ClickUp tasks`,'success');
     }catch(e){state.errors.clickup=e.message;document.getElementById('clickup-dot').className='api-dot error';toast('ClickUp: '+e.message,'error');}
   }
+
+  // ── Dropbox ──
   if(state.dropboxKey){
     try{const res=await dropboxPost('/files/list_folder',{path:state.dropboxFolder,limit:200});state.data.dropboxFiles=res.entries||[];document.getElementById('dropbox-dot').className='api-dot connected';}
     catch(e){if(e.message.includes('409')||e.message.includes('not_found')){state.data.dropboxFiles=[];document.getElementById('dropbox-dot').className='api-dot connected';}else{state.errors.dropbox=e.message;document.getElementById('dropbox-dot').className='api-dot error';}}
   }
+
   state.synced=true;btn.disabled=false;icon.classList.remove('spin');render();
 }
+
+// On load — try reading cached katana-data.json immediately (no sync needed)
+async function loadCachedKatana(){
+  try{
+    const r=await fetch('/katana-data.json?t='+Date.now());
+    if(!r.ok)return;
+    const katana=await r.json();
+    state.data.customers=katana.customers||[];
+    state.data.sales_orders=katana.sales_orders||[];
+    state.data.mfg_orders=katana.manufacturing_orders||[];
+    state.data.products=katana.products||[];
+    state.lastKatanaSync=katana.synced_at;
+    state.synced=true;
+    document.getElementById('katana-dot').className='api-dot connected';
+    render();
+  }catch(e){}
+}
+
 document.getElementById('sync-btn').addEventListener('click',syncAll);
 
 // ══════════════════════════════════════════════════
@@ -628,7 +696,7 @@ async function saveCustomer(){
   const notes=[document.getElementById('cf-notes').value.trim(),document.getElementById('cf-type').value?`Type: ${document.getElementById('cf-type').value}`:'',document.getElementById('cf-source').value?`Source: ${document.getElementById('cf-source').value}`:'',`Owner: ${state.currentUser.firstName}${state.currentUser.lastName?' '+state.currentUser.lastName:''}`].filter(Boolean).join('\n');
   const payload={name:`${first} ${last}`,email,phone:document.getElementById('cf-phone').value.trim()||undefined,company_name:document.getElementById('cf-company').value.trim()||undefined,notes:notes||undefined,addresses:[{street:document.getElementById('cf-street').value.trim()||undefined,city:document.getElementById('cf-city').value.trim()||undefined,state:document.getElementById('cf-state').value.trim()||undefined,zip:document.getElementById('cf-zip').value.trim()||undefined,country:document.getElementById('cf-country').value.trim()||undefined,type:'billing'}]};
   let created=null;
-  if(state.katanaKey){try{created=await katanaPost('/customers',payload);state.data.customers.unshift(created);toast('Customer created in Katana ✓','success');}catch(e){document.getElementById('customer-form-error').innerHTML=`<div class="error-box">Katana error: ${e.message}</div>`;btn.disabled=false;icn.textContent='';lbl.textContent='Create Customer';return;}}
+  try{created=await katanaCreateCustomer(payload);state.data.customers.unshift(created);toast('Customer created in Katana ✓','success');}catch(e){document.getElementById('customer-form-error').innerHTML=`<div class="error-box">Katana error: ${e.message}</div>`;btn.disabled=false;icn.textContent='';lbl.textContent='Create Customer';return;}
   else{created={id:'local_'+Date.now(),name:`${first} ${last}`,email,...payload};state.data.customers.unshift(created);toast('Saved locally (no Katana key)','info');}
   state.ownership[created.id]=state.currentUser.id;saveOwnership();
   if(state.dropboxKey&&state.pendingFiles.length>0){
@@ -797,19 +865,59 @@ function renderUsers(){
 
 function renderApiSettings(){
   if(state.currentUser.role!=='admin'){rc(`<div class="empty-state"><div class="empty-icon">🔒</div><div class="empty-title">Admin only</div></div>`);return;}
-  rc(`<div class="card" style="max-width:540px"><div class="card-title">API Credentials</div><div style="font-size:12px;color:var(--text3);margin-bottom:20px;line-height:1.6">Keys are stored in this browser's localStorage. Only admins can view or change these.</div>
-  <div class="form-section"><div class="form-section-title">Katana MRP</div><div class="form-group" style="margin-bottom:12px"><label class="form-label">API Key</label><input class="form-input" id="s-katana" type="password" placeholder="sk-…" value="${state.katanaKey}"></div></div>
+  const lastSync=state.lastKatanaSync?new Date(state.lastKatanaSync).toLocaleString():'Never';
+  rc(`<div class="card" style="max-width:540px">
+  <div class="card-title">API Settings</div>
+  <div style="font-size:12px;color:var(--text3);margin-bottom:20px;line-height:1.6">Katana syncs automatically via Claude MCP every hour and on manual sync. ClickUp and Dropbox use the Val Town proxy.</div>
+
+  <div class="form-section">
+    <div class="form-section-title">Katana MRP</div>
+    <div style="background:var(--bg3);border:0.5px solid var(--border);border-radius:var(--r);padding:12px 14px;font-size:13px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <div class="api-dot connected"></div>
+        <span style="color:var(--text)">Connected via Claude MCP</span>
+      </div>
+      <div style="font-size:11px;color:var(--text3);font-family:var(--font-mono)">Last sync: ${lastSync}</div>
+      <div style="margin-top:10px">
+        <button class="btn-primary" style="padding:6px 14px;font-size:12px" onclick="triggerKatanaSync()">↻ Sync Now</button>
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--text3);margin-top:8px;line-height:1.6">
+      Environment variables required in Netlify dashboard:<br>
+      <code style="background:var(--bg4);padding:1px 5px;border-radius:3px;font-family:var(--font-mono)">ANTHROPIC_API_KEY</code> · 
+      <code style="background:var(--bg4);padding:1px 5px;border-radius:3px;font-family:var(--font-mono)">KATANA_MCP_TOKEN</code> · 
+      <code style="background:var(--bg4);padding:1px 5px;border-radius:3px;font-family:var(--font-mono)">GITHUB_TOKEN</code> · 
+      <code style="background:var(--bg4);padding:1px 5px;border-radius:3px;font-family:var(--font-mono)">GITHUB_REPO</code>
+    </div>
+  </div>
+
   <div class="form-section"><div class="form-section-title">ClickUp</div><div class="form-grid"><div class="form-group"><label class="form-label">API Token</label><input class="form-input" id="s-clickup" type="password" placeholder="pk_…" value="${state.clickupKey}"></div><div class="form-group"><label class="form-label">Team ID</label><input class="form-input" id="s-cuteam" type="text" placeholder="123456789" value="${state.clickupTeam}"></div></div></div>
+
   <div class="form-section"><div class="form-section-title">Dropbox</div><div class="form-group" style="margin-bottom:10px"><label class="form-label">Access Token</label><input class="form-input" id="s-dropbox" type="password" placeholder="sl.…" value="${state.dropboxKey}"></div><div class="form-group"><label class="form-label">Customer Files Folder</label><input class="form-input" id="s-dbfolder" type="text" placeholder="/CRM/Customers" value="${state.dropboxFolder}"></div></div>
+
   <button class="btn-primary" onclick="saveApiSettings()">Save & Sync</button></div>`);
 }
+
+window.triggerKatanaSync=async function(){
+  toast('Syncing Katana…','info',8000);
+  try{
+    const r=await fetch('/.netlify/functions/sync');
+    const d=await r.json();
+    if(!r.ok)throw new Error(d.error);
+    toast(`Synced — ${d.counts?.customers||0} customers, ${d.counts?.sales_orders||0} orders`,'success');
+    await loadCachedKatana();
+    renderApiSettings();
+  }catch(e){toast('Sync failed: '+e.message,'error');}
+};
 window.saveApiSettings=function(){
-  state.katanaKey=document.getElementById('s-katana').value.trim();state.clickupKey=document.getElementById('s-clickup').value.trim();state.clickupTeam=document.getElementById('s-cuteam').value.trim();state.dropboxKey=document.getElementById('s-dropbox').value.trim();state.dropboxFolder=document.getElementById('s-dbfolder').value.trim()||'/CRM/Customers';
-  localStorage.setItem('arc_katana',state.katanaKey);localStorage.setItem('arc_clickup',state.clickupKey);localStorage.setItem('arc_cu_team',state.clickupTeam);localStorage.setItem('arc_dropbox',state.dropboxKey);localStorage.setItem('arc_dbfolder',state.dropboxFolder);
+  state.clickupKey=document.getElementById('s-clickup').value.trim();state.clickupTeam=document.getElementById('s-cuteam').value.trim();state.dropboxKey=document.getElementById('s-dropbox').value.trim();state.dropboxFolder=document.getElementById('s-dbfolder').value.trim()||'/CRM/Customers';
+  localStorage.setItem('arc_clickup',state.clickupKey);localStorage.setItem('arc_cu_team',state.clickupTeam);localStorage.setItem('arc_dropbox',state.dropboxKey);localStorage.setItem('arc_dbfolder',state.dropboxFolder);
   updateDots();toast('Settings saved','success');syncAll();
 };
 
 updateDots();
+// Load cached Katana data immediately on page load (no sync required)
+loadCachedKatana();
 </script>
 </body>
 </html>

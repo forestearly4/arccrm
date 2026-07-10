@@ -1,0 +1,21 @@
+# arcCRM — Netlify config
+# Scheduled function syncs Katana data every hour via Claude API + Katana MCP
+# Manual sync available via /.netlify/functions/sync endpoint
+
+[build]
+  publish = "."
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
+# Auto-sync every hour
+[functions.sync]
+  schedule = "@hourly"
+
+# Environment variables needed (set in Netlify dashboard → Site settings → Environment variables):
+# ANTHROPIC_API_KEY   — your Anthropic API key
+# GITHUB_TOKEN        — your GitHub personal access token (repo scope)
+# GITHUB_REPO         — forestearly4/arccrm
+# GITHUB_BRANCH       — main
+# KATANA_MCP_TOKEN    — your Katana MCP OAuth token (from Katana settings → MCP)
