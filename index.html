@@ -481,8 +481,12 @@ function attemptLogin(){
   state.currentUser=user;
   document.getElementById('login-screen').style.display='none';
   document.getElementById('app').style.display='flex';
-  setupUserUI();render();
-  if(state.katanaKey||state.clickupKey||state.dropboxKey)syncAll();
+  setupUserUI();
+  // Update katana dot if data was pre-loaded before login
+  if(state.synced) document.getElementById('katana-dot').className='api-dot connected';
+  render();
+  // Auto-sync ClickUp and Dropbox if keys exist (Katana already loaded from cache)
+  if(state.clickupKey||state.dropboxKey) syncAll();
 }
 document.querySelectorAll('.pin-key').forEach(key=>{
   key.addEventListener('click',()=>{
@@ -631,8 +635,11 @@ async function loadCachedKatana(){
     state.data.products=katana.products||[];
     state.lastKatanaSync=katana.synced_at;
     state.synced=true;
-    document.getElementById('katana-dot').className='api-dot connected';
-    render();
+    // Only update UI if user is already logged in
+    if(state.currentUser){
+      document.getElementById('katana-dot').className='api-dot connected';
+      render();
+    }
   }catch(e){}
 }
 
@@ -916,7 +923,7 @@ window.saveApiSettings=function(){
 };
 
 updateDots();
-// Load cached Katana data immediately on page load (no sync required)
+// Pre-load Katana data silently in background — render() only fires after login
 loadCachedKatana();
 </script>
 </body>
