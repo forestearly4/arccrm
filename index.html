@@ -703,8 +703,15 @@ async function saveCustomer(){
   const notes=[document.getElementById('cf-notes').value.trim(),document.getElementById('cf-type').value?`Type: ${document.getElementById('cf-type').value}`:'',document.getElementById('cf-source').value?`Source: ${document.getElementById('cf-source').value}`:'',`Owner: ${state.currentUser.firstName}${state.currentUser.lastName?' '+state.currentUser.lastName:''}`].filter(Boolean).join('\n');
   const payload={name:`${first} ${last}`,email,phone:document.getElementById('cf-phone').value.trim()||undefined,company_name:document.getElementById('cf-company').value.trim()||undefined,notes:notes||undefined,addresses:[{street:document.getElementById('cf-street').value.trim()||undefined,city:document.getElementById('cf-city').value.trim()||undefined,state:document.getElementById('cf-state').value.trim()||undefined,zip:document.getElementById('cf-zip').value.trim()||undefined,country:document.getElementById('cf-country').value.trim()||undefined,type:'billing'}]};
   let created=null;
-  try{created=await katanaCreateCustomer(payload);state.data.customers.unshift(created);toast('Customer created in Katana ✓','success');}catch(e){document.getElementById('customer-form-error').innerHTML=`<div class="error-box">Katana error: ${e.message}</div>`;btn.disabled=false;icn.textContent='';lbl.textContent='Create Customer';return;}
-  else{created={id:'local_'+Date.now(),name:`${first} ${last}`,email,...payload};state.data.customers.unshift(created);toast('Saved locally (no Katana key)','info');}
+  try{
+    created=await katanaCreateCustomer(payload);
+    state.data.customers.unshift(created);
+    toast('Customer created in Katana ✓','success');
+  }catch(e){
+    document.getElementById('customer-form-error').innerHTML=`<div class="error-box">Katana error: ${e.message}</div>`;
+    btn.disabled=false;icn.textContent='';lbl.textContent='Create Customer';
+    return;
+  }
   state.ownership[created.id]=state.currentUser.id;saveOwnership();
   if(state.dropboxKey&&state.pendingFiles.length>0){
     const slug=`${first}_${last}`.replace(/[^a-z0-9_]/gi,'_'),folder=`${state.dropboxFolder}/${slug}`;lbl.textContent='Uploading…';
