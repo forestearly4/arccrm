@@ -531,7 +531,7 @@ async function proxyFetch({url,method='GET',headers={},body}){
   const r=await fetch(PROXY,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url,method,headers,body})});
   const text=await r.text();
   let data;try{data=JSON.parse(text);}catch{throw new Error('Bad response: '+text.slice(0,100));}
-  if(!r.ok)throw new Error(data?.error||`HTTP ${r.status}`);
+  if(!r.ok){const errMsg=typeof data?.error==='object'?JSON.stringify(data.error):(data?.error||data?.error_summary||`HTTP ${r.status}`);throw new Error(errMsg);}
   return data;
 }
 
