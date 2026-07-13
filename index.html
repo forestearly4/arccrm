@@ -578,6 +578,86 @@ tbody tr:hover td{background:var(--bg3);}
 }
 </style>
 
+<!-- PRODUCT IMPORT MODAL -->
+<div class="modal-overlay" id="product-import-modal" style="display:none;">
+  <div class="modal" style="max-width:820px;">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">Import Products &amp; Price List</div>
+        <div class="modal-sub">Upload an Excel (.xlsx) or CSV file — map columns, preview, then push to Katana</div>
+      </div>
+      <button class="modal-close" onclick="closeProductImport()">✕</button>
+    </div>
+    <div class="modal-body">
+
+      <!-- STEP 1: Upload -->
+      <div id="import-step-1">
+        <div class="form-section">
+          <div class="form-section-title">Step 1 — Upload your file</div>
+          <div style="background:var(--bg3);border:1.5px dashed var(--border2);border-radius:var(--r2);padding:28px;text-align:center;cursor:pointer;transition:all 0.2s" id="import-drop-zone" onclick="document.getElementById('import-file-input').click()">
+            <div style="font-size:28px;margin-bottom:8px">📊</div>
+            <div style="font-size:14px;color:var(--text2);margin-bottom:4px">Drop your Excel or CSV file here, or click to browse</div>
+            <div style="font-size:12px;color:var(--text3)">Supports .xlsx, .xls, .csv — any column order, first row must be headers</div>
+          </div>
+          <input type="file" id="import-file-input" accept=".xlsx,.xls,.csv" style="display:none">
+        </div>
+        <div class="form-section">
+          <div class="form-section-title">Expected columns <span style="color:var(--text3);font-weight:400;font-size:10px">(names are flexible — you'll map them in step 2)</span></div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+            ${[['SKU','Product code / SKU'],['Name','Product name'],['Price','Selling price'],['Category','Product category'],['Description','Product description'],['Cost','Purchase / cost price']].map(([k,v])=>`<div style="background:var(--bg3);border-radius:var(--r);padding:8px 12px"><div style="font-size:11px;color:var(--accent);font-family:var(--font-mono)">${k}</div><div style="font-size:11px;color:var(--text3);margin-top:2px">${v}</div></div>`).join('')}
+          </div>
+        </div>
+        <div style="background:var(--amber-bg);border:0.5px solid rgba(251,191,36,0.2);border-radius:var(--r);padding:10px 14px;font-size:12px;color:var(--amber)">
+          💡 Download a <button onclick="downloadTemplate()" style="background:none;border:none;color:var(--amber);text-decoration:underline;cursor:pointer;font-size:12px;font-family:var(--font-body);padding:0">template spreadsheet</button> to get started quickly.
+        </div>
+      </div>
+
+      <!-- STEP 2: Map columns -->
+      <div id="import-step-2" style="display:none">
+        <div class="form-section">
+          <div class="form-section-title">Step 2 — Map your columns</div>
+          <div style="font-size:12px;color:var(--text3);margin-bottom:14px">We detected <span id="import-col-count" style="color:var(--text)">0</span> columns and <span id="import-row-count" style="color:var(--text)">0</span> rows. Match each arcCRM field to a column in your file.</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px" id="column-map-grid"></div>
+        </div>
+        <div class="form-section">
+          <div class="form-section-title">Step 3 — Import type</div>
+          <div style="display:flex;gap:12px">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px">
+              <input type="radio" name="import-type" value="products" checked style="accent-color:var(--accent)"> Products &amp; SKUs
+            </label>
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px">
+              <input type="radio" name="import-type" value="pricelist" style="accent-color:var(--accent)"> Price List update only
+            </label>
+          </div>
+          <div style="font-size:11px;color:var(--text3);margin-top:8px">
+            <strong style="color:var(--text2)">Products &amp; SKUs:</strong> Creates new products in Katana or updates existing ones by SKU match.<br>
+            <strong style="color:var(--text2)">Price List update:</strong> Only updates selling prices for SKUs that already exist in Katana.
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 3: Preview -->
+      <div id="import-step-3" style="display:none">
+        <div class="form-section">
+          <div class="form-section-title">Preview <span id="import-preview-count" style="color:var(--text3);font-weight:400"></span></div>
+          <div class="table-wrap" style="max-height:320px;overflow-y:auto" id="import-preview-table"></div>
+          <div id="import-warnings" style="margin-top:12px"></div>
+        </div>
+      </div>
+
+      <!-- RESULTS -->
+      <div id="import-step-4" style="display:none">
+        <div id="import-results"></div>
+      </div>
+
+      <div id="import-error" style="margin-top:12px"></div>
+    </div>
+    <div class="modal-footer" id="import-footer">
+      <button class="btn-ghost" onclick="closeProductImport()">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script>
@@ -992,9 +1072,16 @@ function renderMfgOrders(){
 
 function renderProducts(){
   let items=state.data.products;if(state.search)items=items.filter(p=>(p.name||'').toLowerCase().includes(state.search)||(p.sku||'').toLowerCase().includes(state.search));
-  rc(`<div class="card"><div class="card-title">${items.length} products / SKUs</div><div class="table-wrap"><table><thead><tr><th>SKU</th><th>Name</th><th>Category</th><th>Price</th><th>Stock</th></tr></thead><tbody>
-    ${items.length?items.map(p=>`<tr><td style="font-family:var(--font-mono);color:var(--accent)">${p.sku||'—'}</td><td style="font-weight:500">${p.name||'—'}</td><td style="color:var(--text3)">${p.category_name||p.category||'—'}</td><td>${money(p.selling_price||p.price)}</td><td><span class="badge ${(p.in_stock||p.stock_quantity||0)>0?'badge-green':'badge-red'}">${p.in_stock||p.stock_quantity||0}</span></td></tr>`).join(''):`<tr><td colspan="5" style="color:var(--text3);text-align:center;padding:40px">No products</td></tr>`}
-  </tbody></table></div></div>`);
+  rc(`
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div style="font-size:13px;color:var(--text3)">${items.length} products from Katana</div>
+      <div style="display:flex;gap:8px">
+        <button class="btn-primary" onclick="openProductImport()">⬆ Import from Excel</button>
+      </div>
+    </div>
+    <div class="card"><div class="table-wrap"><table><thead><tr><th>SKU</th><th>Name</th><th>Category</th><th>Price</th><th>Stock</th></tr></thead><tbody>
+      ${items.length?items.map(p=>`<tr><td style="font-family:var(--font-mono);color:var(--accent)">${p.sku||'—'}</td><td style="font-weight:500">${p.name||'—'}</td><td style="color:var(--text3)">${p.category_name||p.category||'—'}</td><td>${money(p.selling_price||p.price)}</td><td><span class="badge ${(p.in_stock||p.stock_quantity||0)>0?'badge-green':'badge-red'}">${p.in_stock||p.stock_quantity||0}</span></td></tr>`).join(''):`<tr><td colspan="5" style="color:var(--text3);text-align:center;padding:40px">No products — sync Katana to load</td></tr>`}
+    </tbody></table></div></div>`);
 }
 
 function renderTasks(){
@@ -1438,6 +1525,182 @@ window.previewPDF=function(qid){
 window.deleteQuote=function(qid){
   if(!confirm('Delete this quote?'))return;
   saveQuotes(loadQuotes().filter(q=>q.id!==qid));toast('Quote deleted','info');renderQuotes();
+};
+
+// ══════════════════════════════════════════════════
+// PRODUCT & PRICE LIST IMPORT FROM EXCEL / CSV
+// ══════════════════════════════════════════════════
+let importData={headers:[],rows:[],parsed:[],filename:''};
+const IMPORT_FIELDS=[
+  {key:'sku',label:'SKU / Product Code',required:true},
+  {key:'name',label:'Product Name',required:true},
+  {key:'price',label:'Selling Price',required:false},
+  {key:'cost',label:'Cost Price',required:false},
+  {key:'category',label:'Category',required:false},
+  {key:'description',label:'Description',required:false},
+];
+
+function openProductImport(){
+  importData={headers:[],rows:[],parsed:[],filename:''};
+  ['import-step-2','import-step-3','import-step-4'].forEach(id=>document.getElementById(id).style.display='none');
+  document.getElementById('import-step-1').style.display='block';
+  document.getElementById('import-error').innerHTML='';
+  document.getElementById('import-footer').innerHTML='<button class="btn-ghost" onclick="closeProductImport()">Cancel</button>';
+  document.getElementById('product-import-modal').style.display='flex';
+}
+window.openProductImport=openProductImport;
+function closeProductImport(){document.getElementById('product-import-modal').style.display='none';}
+window.closeProductImport=closeProductImport;
+
+document.getElementById('import-drop-zone').addEventListener('dragover',e=>{e.preventDefault();e.currentTarget.style.borderColor='var(--accent)';});
+document.getElementById('import-drop-zone').addEventListener('dragleave',e=>{e.currentTarget.style.borderColor='var(--border2)';});
+document.getElementById('import-drop-zone').addEventListener('drop',e=>{e.preventDefault();e.currentTarget.style.borderColor='var(--border2)';if(e.dataTransfer.files[0])processImportFile(e.dataTransfer.files[0]);});
+document.getElementById('import-file-input').addEventListener('change',e=>{if(e.target.files[0])processImportFile(e.target.files[0]);e.target.value='';});
+
+let sheetJSLoaded=false;
+async function loadSheetJS(){
+  if(sheetJSLoaded||window.XLSX)return;
+  await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';s.onload=()=>{sheetJSLoaded=true;res();};s.onerror=rej;document.head.appendChild(s);});
+}
+
+function parseCSVLine(line){
+  const result=[];let cur='';let inQ=false;
+  for(const c of line){if(c==='"')inQ=!inQ;else if(c===','&&!inQ){result.push(cur.trim());cur='';}else cur+=c;}
+  result.push(cur.trim());return result;
+}
+
+async function processImportFile(file){
+  document.getElementById('import-error').innerHTML='';
+  const ext=file.name.split('.').pop().toLowerCase();
+  importData.filename=file.name;
+  try{
+    let headers=[],rows=[];
+    if(ext==='csv'){
+      const text=await file.text();
+      const lines=text.split(/\r?\n/).filter(l=>l.trim());
+      headers=parseCSVLine(lines[0]);
+      rows=lines.slice(1).map(l=>parseCSVLine(l));
+    } else {
+      await loadSheetJS();
+      const buf=await file.arrayBuffer();
+      const wb=XLSX.read(buf,{type:'array'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const data=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+      headers=(data[0]||[]).map(h=>String(h||'').trim());
+      rows=data.slice(1).filter(r=>r.some(c=>c!==''&&c!==null&&c!==undefined));
+    }
+    importData.headers=headers;importData.rows=rows;
+    document.getElementById('import-col-count').textContent=headers.length;
+    document.getElementById('import-row-count').textContent=rows.length;
+    showColumnMapper();
+  }catch(e){document.getElementById('import-error').innerHTML=`<div class="error-box">Failed to parse: ${e.message}</div>`;}
+}
+
+function guessMapping(headers){
+  const map={};
+  const guesses={sku:[/sku/i,/code/i,/product.?code/i,/item.?code/i,/part/i],name:[/^name/i,/product.?name/i,/title/i,/item.?name/i],price:[/sell/i,/price/i,/msrp/i,/retail/i,/unit.?price/i],cost:[/cost/i,/purchase/i,/buy/i,/wholesale/i],category:[/cat/i,/group/i,/type/i,/class/i],description:[/^desc/i,/note/i,/detail/i]};
+  IMPORT_FIELDS.forEach(f=>{const pats=guesses[f.key]||[];const m=headers.find(h=>pats.some(p=>p.test(h)));if(m)map[f.key]=m;});
+  return map;
+}
+
+function showColumnMapper(){
+  ['import-step-1','import-step-3','import-step-4'].forEach(id=>document.getElementById(id).style.display='none');
+  document.getElementById('import-step-2').style.display='block';
+  const guessed=guessMapping(importData.headers);
+  document.getElementById('column-map-grid').innerHTML=IMPORT_FIELDS.map(f=>`
+    <div class="form-group">
+      <label class="form-label">${f.label}${f.required?' <span class="req">*</span>':' <span style="color:var(--text3)">(optional)</span>'}</label>
+      <select class="form-select" id="map-${f.key}">
+        <option value="">— Skip —</option>
+        ${importData.headers.map(h=>`<option value="${h}" ${guessed[f.key]===h?'selected':''}>${h}</option>`).join('')}
+      </select>
+    </div>`).join('');
+  document.getElementById('import-footer').innerHTML='<button class="btn-ghost" onclick="closeProductImport()">Cancel</button><button class="btn-ghost" onclick="openProductImport()">↩ Re-upload</button><button class="btn-primary" onclick="runImportPreview()">Preview →</button>';
+}
+window.showColumnMapper=showColumnMapper;
+
+function getColumnMap(){const map={};IMPORT_FIELDS.forEach(f=>{const v=document.getElementById('map-'+f.key)?.value;if(v)map[f.key]=v;});return map;}
+
+function runImportPreview(){
+  const colMap=getColumnMap();
+  const errEl=document.getElementById('import-error');
+  if(!colMap.sku){errEl.innerHTML='<div class="error-box">SKU column is required.</div>';return;}
+  if(!colMap.name){errEl.innerHTML='<div class="error-box">Product Name column is required.</div>';return;}
+  errEl.innerHTML='';
+  const getCol=(row,key)=>{const hdr=colMap[key];if(!hdr)return'';const idx=importData.headers.indexOf(hdr);return idx>-1?String(row[idx]||'').trim():'';};
+  importData.parsed=importData.rows.filter(r=>getCol(r,'sku')).map(row=>({
+    sku:getCol(row,'sku'),name:getCol(row,'name'),
+    price:parseFloat(getCol(row,'price').replace(/[$,]/g,''))||0,
+    cost:parseFloat(getCol(row,'cost').replace(/[$,]/g,''))||0,
+    category:getCol(row,'category'),description:getCol(row,'description'),
+    existing:state.data.products.find(p=>p.sku===getCol(row,'sku'))||null,
+  }));
+  const importType=document.querySelector('input[name="import-type"]:checked')?.value||'products';
+  const newProds=importData.parsed.filter(p=>!p.existing);
+  const updateProds=importData.parsed.filter(p=>p.existing);
+  const warnings=[];
+  if(importType==='pricelist'&&newProds.length)warnings.push(`${newProds.length} SKU(s) not in Katana — will be skipped in price-list mode.`);
+  if(!importData.parsed.length)warnings.push('No valid rows found — check SKU column mapping.');
+  ['import-step-1','import-step-2','import-step-4'].forEach(id=>document.getElementById(id).style.display='none');
+  document.getElementById('import-step-3').style.display='block';
+  document.getElementById('import-preview-count').textContent=`— ${importData.parsed.length} rows · ${newProds.length} new · ${updateProds.length} updates`;
+  document.getElementById('import-preview-table').innerHTML=`<table><thead><tr><th>SKU</th><th>Name</th><th>Price</th><th>Category</th><th>Action</th></tr></thead><tbody>
+    ${importData.parsed.map(p=>`<tr><td style="font-family:var(--font-mono);color:var(--accent)">${p.sku}</td><td>${p.name||'—'}</td><td style="font-family:var(--font-mono)">${p.price?'$'+p.price.toFixed(2):'—'}</td><td style="color:var(--text3)">${p.category||'—'}</td><td>${p.existing?'<span class="badge badge-blue">Update</span>':'<span class="badge badge-green">New</span>'}</td></tr>`).join('')}
+  </tbody></table>`;
+  document.getElementById('import-warnings').innerHTML=warnings.map(w=>`<div class="warn-box">⚠ ${w}</div>`).join('');
+  document.getElementById('import-footer').innerHTML='<button class="btn-ghost" onclick="closeProductImport()">Cancel</button><button class="btn-ghost" onclick="showColumnMapper()">↩ Back</button><button class="btn-primary" onclick="runImport()">⬆ Import to Katana</button>';
+}
+window.runImportPreview=runImportPreview;
+
+async function runImport(){
+  const importType=document.querySelector('input[name="import-type"]:checked')?.value||'products';
+  ['import-step-3'].forEach(id=>document.getElementById(id).style.display='none');
+  document.getElementById('import-step-4').style.display='block';
+  document.getElementById('import-footer').innerHTML='<button class="btn-ghost" disabled>Importing…</button>';
+  const results={created:0,updated:0,skipped:0,errors:[]};
+  for(const p of importData.parsed){
+    if(importType==='pricelist'&&!p.existing){results.skipped++;continue;}
+    try{
+      const payload={name:p.name,sku:p.sku,...(p.price?{selling_price:p.price}:{}),...(p.cost?{purchase_price:p.cost}:{}),...(p.category?{category_name:p.category}:{}),...(p.description?{notes:p.description}:{})};
+      const endpoint=p.existing?'/.netlify/functions/update-product':'/.netlify/functions/create-product';
+      const body=p.existing?{id:p.existing.id,...payload}:payload;
+      const r=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+      if(!r.ok){const d=await r.json();throw new Error(d.error||`HTTP ${r.status}`);}
+      p.existing?results.updated++:results.created++;
+    }catch(e){results.errors.push(`${p.sku}: ${e.message}`);}
+    await new Promise(r=>setTimeout(r,150));
+    const done=results.created+results.updated+results.skipped+results.errors.length;
+    document.getElementById('import-results').innerHTML=renderImportProgress(done,importData.parsed.length,results);
+  }
+  if(results.created+results.updated>0){try{await fetch('/.netlify/functions/sync');}catch(e){}toast(`Import done — ${results.created} created, ${results.updated} updated`,'success');}
+  document.getElementById('import-footer').innerHTML='<button class="btn-ghost" onclick="closeProductImport()">Close</button><button class="btn-primary" onclick="openProductImport()">Import Another</button>';
+}
+window.runImport=runImport;
+
+function renderImportProgress(done,total,r){
+  const pct=total?Math.round(done/total*100):100;
+  return`<div>
+    <div style="font-size:13px;color:var(--text2);margin-bottom:10px">${done>=total?'Import complete!':'Importing '+done+' of '+total+'…'}</div>
+    <div style="height:6px;background:var(--border2);border-radius:3px;margin-bottom:16px"><div style="height:100%;width:${pct}%;background:var(--accent);border-radius:3px;transition:width 0.3s"></div></div>
+    <div class="stats-grid" style="margin-bottom:16px">
+      <div class="stat-card"><div class="stat-label">Created</div><div class="stat-value" style="color:var(--green)">${r.created}</div></div>
+      <div class="stat-card"><div class="stat-label">Updated</div><div class="stat-value" style="color:var(--blue)">${r.updated}</div></div>
+      <div class="stat-card"><div class="stat-label">Skipped</div><div class="stat-value" style="color:var(--text3)">${r.skipped}</div></div>
+      <div class="stat-card"><div class="stat-label">Errors</div><div class="stat-value" style="color:${r.errors.length?'var(--red)':'var(--text3)'}">${r.errors.length}</div></div>
+    </div>
+    ${r.errors.length?`<div class="error-box"><strong>Errors:</strong><br>${r.errors.map(e=>`• ${e}`).join('<br>')}</div>`:''}
+    ${done>=total&&!r.errors.length?'<div style="color:var(--green);font-size:13px;text-align:center;padding:12px">✓ All items imported successfully!</div>':''}
+  </div>`;
+}
+
+window.downloadTemplate=async function(){
+  await loadSheetJS();
+  const wb=XLSX.utils.book_new();
+  const data=[['SKU','Name','Selling Price','Cost Price','Category','Description'],['SKU-001','Example Product','29.99','15.00','General','A sample product'],['SKU-002','Another Product','49.99','22.00','Premium','Another description']];
+  const ws=XLSX.utils.aoa_to_sheet(data);
+  ws['!cols']=[{wch:12},{wch:24},{wch:14},{wch:12},{wch:16},{wch:32}];
+  XLSX.utils.book_append_sheet(wb,ws,'Products');
+  XLSX.writeFile(wb,'arccrm-import-template.xlsx');
 };
 
 updateDots();
