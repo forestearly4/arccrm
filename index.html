@@ -293,6 +293,10 @@ tbody tr:hover td{background:var(--bg3);}
         <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="3" width="3" height="10" rx="1"/><rect x="6" y="5" width="3" height="8" rx="1"/><rect x="11" y="1" width="3" height="12" rx="1"/></svg>
         Sales Pipeline
       </div>
+      <div class="nav-item" data-view="quotes">
+        <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 2h8a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M5 5h6M5 8h6M5 11h4"/></svg>
+        Quotes
+      </div>
       <div class="nav-section">Dropbox</div>
       <div class="nav-item" data-view="dropbox">
         <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 2L8 5l4-3 4 3-4 3 4 3-4-3-4 3-4-3 4-3-4-3z"/><path d="M4 14l4-3 4 3"/></svg>
@@ -419,6 +423,160 @@ tbody tr:hover td{background:var(--bg3);}
     <div class="modal-footer"><button class="btn-ghost" onclick="closeDetail()">Close</button></div>
   </div>
 </div>
+
+<!-- QUOTE MODAL -->
+<div class="modal-overlay" id="quote-modal" style="display:none;">
+  <div class="modal" style="max-width:780px;">
+    <div class="modal-header">
+      <div><div class="modal-title" id="quote-modal-title">New Quote</div><div class="modal-sub" id="quote-modal-sub">Draft · not yet submitted</div></div>
+      <button class="modal-close" onclick="closeQuoteModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <!-- CUSTOMER + META -->
+      <div class="form-section">
+        <div class="form-section-title">Quote Details</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">Customer <span class="req">*</span></label>
+            <select class="form-select" id="q-customer">
+              <option value="">— Select customer —</option>
+            </select>
+            <div class="field-error" id="err-q-customer"></div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Quote Number</label>
+            <input class="form-input" id="q-number" type="text" placeholder="Auto-generated">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Valid Until</label>
+            <input class="form-input" id="q-expiry" type="date">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Currency</label>
+            <select class="form-select" id="q-currency">
+              <option value="USD">USD — US Dollar</option>
+              <option value="EUR">EUR — Euro</option>
+              <option value="GBP">GBP — British Pound</option>
+              <option value="CAD">CAD — Canadian Dollar</option>
+            </select>
+          </div>
+          <div class="form-group span2">
+            <label class="form-label">Notes / Terms</label>
+            <textarea class="form-textarea" id="q-notes" placeholder="Payment terms, delivery notes, special conditions…"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- LINE ITEMS -->
+      <div class="form-section">
+        <div class="form-section-title">
+          Line Items
+          <button onclick="addLineItem()" style="margin-left:auto;padding:3px 10px;font-size:11px;background:var(--accent-dim);color:var(--accent);border:0.5px solid var(--accent);border-radius:var(--r);cursor:pointer;font-family:var(--font-body)">+ Add Item</button>
+        </div>
+        <div id="line-items-wrap">
+          <table style="font-size:13px">
+            <thead><tr>
+              <th style="width:30%">Product</th>
+              <th style="width:20%">Variant</th>
+              <th style="width:10%">Qty</th>
+              <th style="width:15%">Unit Price</th>
+              <th style="width:10%">Disc %</th>
+              <th style="width:12%">Total</th>
+              <th style="width:3%"></th>
+            </tr></thead>
+            <tbody id="line-items-body"></tbody>
+          </table>
+        </div>
+        <div style="display:flex;justify-content:flex-end;margin-top:14px;gap:24px">
+          <div style="font-size:12px;color:var(--text3)">Subtotal</div>
+          <div style="font-size:13px;font-family:var(--font-mono);min-width:80px;text-align:right" id="q-subtotal">$0.00</div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;margin-top:6px;gap:24px">
+          <div style="font-size:12px;color:var(--text3)">Tax %</div>
+          <input type="number" id="q-tax" value="0" min="0" max="100" step="0.1" style="width:60px;background:var(--bg3);border:0.5px solid var(--border2);color:var(--text);padding:3px 7px;border-radius:var(--r);font-size:12px;font-family:var(--font-mono);text-align:right;outline:none" oninput="recalcTotals()">
+        </div>
+        <div style="display:flex;justify-content:flex-end;margin-top:6px;gap:24px;padding-top:10px;border-top:0.5px solid var(--border)">
+          <div style="font-size:14px;font-weight:600;color:var(--text)">Total</div>
+          <div style="font-size:14px;font-weight:600;font-family:var(--font-mono);min-width:80px;text-align:right;color:var(--accent)" id="q-total">$0.00</div>
+        </div>
+      </div>
+
+      <!-- ATTACHMENTS -->
+      <div class="form-section">
+        <div class="form-section-title">
+          Attachments
+          <div style="margin-left:auto;display:flex;gap:8px">
+            <button onclick="openDropboxBrowser()" style="padding:3px 10px;font-size:11px;background:var(--dropbox-bg);color:var(--dropbox);border:0.5px solid var(--dropbox);border-radius:var(--r);cursor:pointer;font-family:var(--font-body)">📁 Browse Dropbox</button>
+            <button onclick="document.getElementById('q-file-input').click()" style="padding:3px 10px;font-size:11px;background:var(--accent-dim);color:var(--accent);border:0.5px solid var(--accent);border-radius:var(--r);cursor:pointer;font-family:var(--font-body)">↑ Upload File</button>
+          </div>
+        </div>
+        <input type="file" id="q-file-input" multiple style="display:none">
+        <div id="q-attachments" style="display:flex;flex-direction:column;gap:6px;min-height:32px">
+          <div style="font-size:12px;color:var(--text3);padding:8px 0">No attachments yet.</div>
+        </div>
+      </div>
+
+      <div id="quote-form-error"></div>
+    </div>
+    <div class="modal-footer" id="quote-modal-footer">
+      <button class="btn-ghost" onclick="closeQuoteModal()">Cancel</button>
+      <button class="btn-primary" id="quote-save-btn" onclick="saveQuote('draft')">Save Draft</button>
+    </div>
+  </div>
+</div>
+
+<!-- DROPBOX BROWSER MODAL -->
+<div class="modal-overlay" id="dbx-browser-modal" style="display:none;">
+  <div class="modal" style="max-width:560px;">
+    <div class="modal-header">
+      <div><div class="modal-title">Dropbox Files</div><div class="modal-sub" id="dbx-browser-path">/</div></div>
+      <button class="modal-close" onclick="closeDropboxBrowser()">✕</button>
+    </div>
+    <div class="modal-body" style="padding:12px 24px;">
+      <div id="dbx-browser-content"><div class="loading"><div class="loader"></div> Loading…</div></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="closeDropboxBrowser()">Cancel</button>
+      <button class="btn-primary" id="dbx-attach-btn" onclick="attachSelectedDropboxFiles()" disabled>Attach Selected</button>
+    </div>
+  </div>
+</div>
+
+<!-- PDF PRINT FRAME -->
+<div id="pdf-frame" style="display:none;position:fixed;inset:0;background:white;z-index:9999;overflow:auto;padding:48px;font-family:'Outfit',sans-serif;color:#111"></div>
+
+<style>
+/* QUOTE STYLES */
+.quote-row { display:contents; }
+.quote-row td { padding:6px 8px; border-bottom:0.5px solid var(--border); vertical-align:middle; }
+.q-select { background:var(--bg3); border:0.5px solid var(--border2); color:var(--text); padding:6px 8px; border-radius:var(--r); font-size:12px; font-family:var(--font-body); outline:none; width:100%; }
+.q-select:focus { border-color:var(--accent); }
+.q-input { background:var(--bg3); border:0.5px solid var(--border2); color:var(--text); padding:6px 8px; border-radius:var(--r); font-size:12px; font-family:var(--font-mono); outline:none; width:100%; }
+.q-input:focus { border-color:var(--accent); }
+.rm-btn { background:none; border:none; color:var(--text3); cursor:pointer; font-size:14px; padding:2px 6px; }
+.rm-btn:hover { color:var(--red); }
+.attach-item { display:flex; align-items:center; gap:10px; background:var(--bg3); border-radius:var(--r); padding:7px 12px; font-size:12px; }
+.attach-name { flex:1; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.attach-src { font-size:10px; color:var(--text3); font-family:var(--font-mono); flex-shrink:0; }
+.dbx-item { display:flex; align-items:center; gap:10px; padding:8px 12px; border-radius:var(--r); cursor:pointer; transition:background 0.12s; user-select:none; }
+.dbx-item:hover { background:var(--bg3); }
+.dbx-item.selected { background:var(--accent-dim); }
+.dbx-item-icon { font-size:16px; flex-shrink:0; }
+.dbx-item-name { flex:1; font-size:13px; color:var(--text); }
+.dbx-item-meta { font-size:11px; color:var(--text3); font-family:var(--font-mono); flex-shrink:0; }
+/* Status badges for quotes */
+.badge-draft { background:var(--bg4); color:var(--text2); }
+.badge-preapproval { background:var(--amber-bg); color:var(--amber); }
+.badge-approval { background:var(--blue-bg); color:var(--blue); }
+.badge-approved { background:var(--green-bg); color:var(--green); }
+.badge-sent { background:var(--teal-bg); color:var(--teal); }
+/* PDF */
+@media print {
+  body > *:not(#pdf-frame) { display:none !important; }
+  #pdf-frame { position:static !important; padding:0 !important; }
+  .pdf-no-print { display:none !important; }
+}
+</style>
 
 <div id="toast"></div>
 
@@ -753,13 +911,13 @@ window.deleteUser=deleteUser;window.openAddUser=openAddUser;
 // ══════════════════════════════════════════════════
 // ROUTING
 // ══════════════════════════════════════════════════
-const TITLES={dashboard:'Dashboard',customers:'Customers',sales_orders:'Sales Orders',mfg_orders:'Manufacturing Orders',products:'Products / SKUs',tasks:'Tasks',lists:'Lists & Projects',pipeline:'Sales Pipeline',dropbox:'Dropbox Files',users:'User Management',settings_api:'API Settings'};
+const TITLES={dashboard:'Dashboard',customers:'Customers',sales_orders:'Sales Orders',mfg_orders:'Manufacturing Orders',products:'Products / SKUs',tasks:'Tasks',lists:'Lists & Projects',pipeline:'Sales Pipeline',quotes:'Quotes',dropbox:'Dropbox Files',users:'User Management',settings_api:'API Settings'};
 
 function render(){
   document.getElementById('topbar-title').textContent=TITLES[state.view]||state.view;
   document.getElementById('new-customer-btn').style.display=state.view==='customers'?'flex':'none';
   if(!state.synced&&!['dashboard','pipeline','users','settings_api'].includes(state.view)){rc(`<div class="empty-state"><div class="empty-icon">⚡</div><div class="empty-title">No data synced yet</div><div class="empty-sub">Click Sync All to pull live data.</div></div>`);return;}
-  ({dashboard:renderDashboard,customers:renderCustomers,sales_orders:renderSalesOrders,mfg_orders:renderMfgOrders,products:renderProducts,tasks:renderTasks,lists:renderLists,pipeline:renderPipeline,dropbox:renderDropbox,users:renderUsers,settings_api:renderApiSettings})[state.view]?.();
+  ({dashboard:renderDashboard,customers:renderCustomers,sales_orders:renderSalesOrders,mfg_orders:renderMfgOrders,products:renderProducts,tasks:renderTasks,lists:renderLists,pipeline:renderPipeline,quotes:renderQuotes,dropbox:renderDropbox,users:renderUsers,settings_api:renderApiSettings})[state.view]?.();
 }
 document.querySelectorAll('.nav-item').forEach(item=>{item.addEventListener('click',()=>{document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));item.classList.add('active');state.view=item.dataset.view;state.search='';document.getElementById('search-input').value='';render();});});
 document.getElementById('search-input').addEventListener('input',e=>{state.search=e.target.value.toLowerCase();render();});
@@ -927,6 +1085,359 @@ window.saveApiSettings=function(){
   state.clickupKey=document.getElementById('s-clickup').value.trim();state.clickupTeam=document.getElementById('s-cuteam').value.trim();state.dropboxKey=document.getElementById('s-dropbox').value.trim();state.dropboxFolder=document.getElementById('s-dbfolder').value.trim()||'/CRM/Customers';
   localStorage.setItem('arc_clickup',state.clickupKey);localStorage.setItem('arc_cu_team',state.clickupTeam);localStorage.setItem('arc_dropbox',state.dropboxKey);localStorage.setItem('arc_dbfolder',state.dropboxFolder);
   updateDots();toast('Settings saved','success');syncAll();
+};
+
+// ══════════════════════════════════════════════════
+// QUOTES SYSTEM
+// ══════════════════════════════════════════════════
+function loadQuotes(){try{return JSON.parse(localStorage.getItem('arc_quotes')||'[]');}catch{return[];}}
+function saveQuotes(q){localStorage.setItem('arc_quotes',JSON.stringify(q));}
+function nextQuoteNumber(){const q=loadQuotes();const nums=q.map(x=>parseInt((x.number||'Q-000').replace(/\D/g,''))||0);return'Q-'+(String(Math.max(0,...nums)+1).padStart(4,'0'));}
+function fmtMoney(v){return'$'+parseFloat(v||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function lineTotal(li){const sub=li.qty*li.unitPrice;return sub*(1-(li.disc||0)/100);}
+
+// ── LINE ITEMS ──
+let lineItems=[];
+function addLineItem(){const id='li_'+Date.now()+'_'+Math.random().toString(36).slice(2,6);lineItems.push({id,productId:'',variantId:'',qty:1,unitPrice:0,disc:0});renderLineItems();}
+window.addLineItem=addLineItem;
+function removeLineItem(id){lineItems=lineItems.filter(l=>l.id!==id);renderLineItems();recalcTotals();}
+window.removeLineItem=removeLineItem;
+
+function renderLineItems(){
+  const prods=state.data.products||[];
+  const body=document.getElementById('line-items-body');if(!body)return;
+  if(!lineItems.length){body.innerHTML=`<tr><td colspan="7" style="color:var(--text3);text-align:center;padding:20px;font-size:13px">No items — click + Add Item</td></tr>`;return;}
+  body.innerHTML=lineItems.map(li=>{
+    const prod=prods.find(p=>p.id==li.productId)||null;
+    const variants=prod?.variants||[];
+    return`<tr>
+      <td><select class="q-select" onchange="onProductChange('${li.id}',this.value)">
+        <option value="">— Product —</option>
+        ${prods.map(p=>`<option value="${p.id}" ${li.productId==p.id?'selected':''}>${p.name||p.sku||'—'}</option>`).join('')}
+      </select></td>
+      <td><select class="q-select" onchange="onVariantChange('${li.id}',this.value)">
+        <option value="">— Variant —</option>
+        ${variants.map(v=>`<option value="${v.id}" ${li.variantId==v.id?'selected':''}>${v.name||v.sku||'Default'}</option>`).join('')}
+      </select></td>
+      <td><input class="q-input" type="number" min="1" value="${li.qty}" style="width:60px" onchange="onQtyChange('${li.id}',this.value)"></td>
+      <td><input class="q-input" type="number" min="0" step="0.01" value="${li.unitPrice}" style="width:80px" onchange="onPriceChange('${li.id}',this.value)"></td>
+      <td><input class="q-input" type="number" min="0" max="100" value="${li.disc}" style="width:55px" onchange="onDiscChange('${li.id}',this.value)"></td>
+      <td style="font-family:var(--font-mono);color:var(--accent);text-align:right">${fmtMoney(lineTotal(li))}</td>
+      <td><button class="rm-btn" onclick="removeLineItem('${li.id}')">✕</button></td>
+    </tr>`;
+  }).join('');
+  recalcTotals();
+}
+
+function recalcTotals(){
+  const sub=lineItems.reduce((s,li)=>s+lineTotal(li),0);
+  const tax=parseFloat(document.getElementById('q-tax')?.value||0)||0;
+  const total=sub*(1+tax/100);
+  const subEl=document.getElementById('q-subtotal');const totEl=document.getElementById('q-total');
+  if(subEl)subEl.textContent=fmtMoney(sub);if(totEl)totEl.textContent=fmtMoney(total);
+}
+window.recalcTotals=recalcTotals;
+
+window.onProductChange=function(id,prodId){
+  const li=lineItems.find(l=>l.id===id);if(!li)return;
+  li.productId=prodId;li.variantId='';
+  const prod=state.data.products.find(p=>p.id==prodId);
+  if(prod)li.unitPrice=parseFloat(prod.selling_price||prod.price||0)||0;
+  renderLineItems();
+};
+window.onVariantChange=function(id,varId){const li=lineItems.find(l=>l.id===id);if(!li)return;li.variantId=varId;renderLineItems();};
+window.onQtyChange=function(id,v){const li=lineItems.find(l=>l.id===id);if(!li)return;li.qty=parseFloat(v)||1;recalcTotals();};
+window.onPriceChange=function(id,v){const li=lineItems.find(l=>l.id===id);if(!li)return;li.unitPrice=parseFloat(v)||0;recalcTotals();};
+window.onDiscChange=function(id,v){const li=lineItems.find(l=>l.id===id);if(!li)return;li.disc=parseFloat(v)||0;recalcTotals();};
+
+// ── ATTACHMENTS ──
+let quoteAttachments=[];
+function renderQuoteAttachments(){
+  const el=document.getElementById('q-attachments');if(!el)return;
+  if(!quoteAttachments.length){el.innerHTML='<div style="font-size:12px;color:var(--text3);padding:8px 0">No attachments yet.</div>';return;}
+  el.innerHTML=quoteAttachments.map((a,i)=>`<div class="attach-item"><span style="font-size:14px">${fileIcon(a.name)}</span><span class="attach-name">${a.name}</span><span class="attach-src">${a.source==='dropbox'?'Dropbox':'Upload'}</span><button class="rm-btn" onclick="removeAttachment(${i})">✕</button></div>`).join('');
+}
+window.removeAttachment=function(i){quoteAttachments.splice(i,1);renderQuoteAttachments();};
+document.getElementById('q-file-input').addEventListener('change',e=>{
+  for(const f of e.target.files)quoteAttachments.push({name:f.name,source:'upload',file:f});
+  e.target.value='';renderQuoteAttachments();
+});
+
+// ── DROPBOX BROWSER ──
+let dbxBrowserPath='';let dbxSelectedFiles=[];
+async function openDropboxBrowser(path){
+  dbxSelectedFiles=[];dbxBrowserPath=path||state.dropboxFolder||'/';
+  document.getElementById('dbx-browser-path').textContent=dbxBrowserPath;
+  document.getElementById('dbx-attach-btn').disabled=true;
+  document.getElementById('dbx-browser-modal').style.display='flex';
+  await loadDropboxFolder(dbxBrowserPath);
+}
+window.openDropboxBrowser=openDropboxBrowser;
+
+async function loadDropboxFolder(path){
+  const content=document.getElementById('dbx-browser-content');
+  content.innerHTML='<div class="loading"><div class="loader"></div> Loading…</div>';
+  document.getElementById('dbx-browser-path').textContent=path;dbxBrowserPath=path;
+  try{
+    const res=await dropboxPost('/files/list_folder',{path:path==='/'?'':path,limit:200});
+    const entries=res.entries||[];
+    if(!entries.length){content.innerHTML='<div style="color:var(--text3);font-size:13px;padding:20px;text-align:center">Empty folder</div>';return;}
+    const folders=entries.filter(e=>e['.tag']==='folder').sort((a,b)=>a.name.localeCompare(b.name));
+    const files=entries.filter(e=>e['.tag']==='file').sort((a,b)=>a.name.localeCompare(b.name));
+    const parentPath=path.split('/').slice(0,-1).join('/')||'/';
+    const backBtn=path&&path!=='/'&&path!==''?`<div class="dbx-item" onclick="loadDropboxFolder('${parentPath}')"><span class="dbx-item-icon">⬆️</span><span class="dbx-item-name" style="color:var(--text3)">.. back</span></div>`:'';
+    content.innerHTML=backBtn+
+      folders.map(f=>`<div class="dbx-item" onclick="loadDropboxFolder('${f.path_display}')"><span class="dbx-item-icon">📁</span><span class="dbx-item-name">${f.name}</span><span class="dbx-item-meta">folder</span></div>`).join('')+
+      files.map(f=>{const sid='dbxf_'+Math.abs(f.path_display.split('').reduce((h,c)=>Math.imul(31,h)+c.charCodeAt(0)|0,0));return`<div class="dbx-item" id="${sid}" onclick='toggleDbxFile(${JSON.stringify(f).replace(/'/g,"&apos;")},"${sid}")'><span class="dbx-item-icon">${fileIcon(f.name)}</span><span class="dbx-item-name">${f.name}</span><span class="dbx-item-meta">${fileSize(f.size||0)}</span></div>`;}).join('');
+  }catch(e){content.innerHTML=`<div class="error-box">Dropbox error: ${e.message}</div>`;}
+}
+window.loadDropboxFolder=loadDropboxFolder;
+
+window.toggleDbxFile=function(f,sid){
+  const idx=dbxSelectedFiles.findIndex(x=>x.path_display===f.path_display);
+  const el=document.getElementById(sid);
+  if(idx>-1){dbxSelectedFiles.splice(idx,1);if(el)el.classList.remove('selected');}
+  else{dbxSelectedFiles.push(f);if(el)el.classList.add('selected');}
+  document.getElementById('dbx-attach-btn').disabled=dbxSelectedFiles.length===0;
+};
+
+function closeDropboxBrowser(){document.getElementById('dbx-browser-modal').style.display='none';}
+window.closeDropboxBrowser=closeDropboxBrowser;
+
+function attachSelectedDropboxFiles(){
+  dbxSelectedFiles.forEach(f=>{if(!quoteAttachments.find(a=>a.path===f.path_display))quoteAttachments.push({name:f.name,source:'dropbox',path:f.path_display,size:f.size});});
+  renderQuoteAttachments();closeDropboxBrowser();
+}
+window.attachSelectedDropboxFiles=attachSelectedDropboxFiles;
+
+// ── QUOTE MODAL ──
+let editingQuoteId=null;
+function quoteStageBadge(status){
+  const m={draft:'badge-draft',preapproval:'badge-preapproval',approval:'badge-approval',approved:'badge-approved',sent:'badge-sent'};
+  const labels={draft:'Draft',preapproval:'Pending Pre-approval',approval:'Pending Approval',approved:'Approved',sent:'Sent'};
+  return`<span class="badge ${m[status]||'badge-gray'}">${labels[status]||status}</span>`;
+}
+
+function populateQuoteCustomers(selectedId){
+  const sel=document.getElementById('q-customer');if(!sel)return;
+  sel.innerHTML='<option value="">— Select customer —</option>'+(state.data.customers||[]).map(c=>`<option value="${c.id}" ${c.id==selectedId?'selected':''}>${c.name||c.company_name||'—'}</option>`).join('');
+}
+
+function setQuoteModalFooter(status){
+  const isAdmin=state.currentUser?.role==='admin';
+  const footer=document.getElementById('quote-modal-footer');
+  let btns=`<button class="btn-ghost" onclick="closeQuoteModal()">Cancel</button>`;
+  if(status==='draft'){
+    btns+=`<button class="btn-primary" onclick="saveQuote('draft')">Save Draft</button>`;
+    btns+=`<button class="btn-primary" style="background:var(--amber);color:#1a1000" onclick="saveQuote('preapproval')">Submit for Pre-approval →</button>`;
+  } else if(status==='preapproval'&&isAdmin){
+    btns+=`<button class="btn-primary" style="background:var(--blue);color:#fff" onclick="saveQuote('approval')">Pre-approve → Send for Approval</button>`;
+    btns+=`<button class="btn-danger" onclick="saveQuote('draft')">↩ Return to Draft</button>`;
+  } else if(status==='approval'&&isAdmin){
+    btns+=`<button class="btn-primary" style="background:var(--green);color:#001a00" onclick="saveQuote('approved')">✓ Approve</button>`;
+    btns+=`<button class="btn-danger" onclick="saveQuote('preapproval')">↩ Return to Pre-approval</button>`;
+  } else if(status==='approved'||status==='sent'){
+    btns+=`<button class="btn-primary" style="background:var(--teal);color:#001a15" onclick="sendQuote()">✉ Send to Customer</button>`;
+    btns+=`<button class="btn-ghost" onclick="downloadQuotePDF()">⬇ PDF</button>`;
+    if(isAdmin)btns+=`<button class="btn-primary" style="background:var(--purple);color:#fff" onclick="pushToKatana()">→ Push to Katana</button>`;
+  } else {
+    btns+=`<button class="btn-primary" onclick="saveQuote('draft')">Save Draft</button>`;
+  }
+  footer.innerHTML=btns;
+}
+
+function openNewQuote(){
+  editingQuoteId=null;lineItems=[];quoteAttachments=[];
+  document.getElementById('quote-modal-title').textContent='New Quote';
+  document.getElementById('quote-modal-sub').textContent='Draft · not yet submitted';
+  document.getElementById('q-number').value=nextQuoteNumber();
+  document.getElementById('q-notes').value='';
+  document.getElementById('q-tax').value='0';
+  document.getElementById('q-expiry').value='';
+  document.getElementById('q-currency').value='USD';
+  document.getElementById('quote-form-error').innerHTML='';
+  document.getElementById('err-q-customer').textContent='';
+  populateQuoteCustomers('');
+  addLineItem();renderQuoteAttachments();setQuoteModalFooter('draft');
+  document.getElementById('quote-modal').style.display='flex';
+}
+window.openNewQuote=openNewQuote;
+
+window.openEditQuote=function(q){
+  editingQuoteId=q.id;lineItems=JSON.parse(JSON.stringify(q.lineItems||[]));quoteAttachments=JSON.parse(JSON.stringify(q.attachments||[]));
+  document.getElementById('quote-modal-title').textContent='Quote '+q.number;
+  document.getElementById('quote-modal-sub').innerHTML=quoteStageBadge(q.status);
+  document.getElementById('q-number').value=q.number||'';
+  document.getElementById('q-notes').value=q.notes||'';
+  document.getElementById('q-tax').value=q.tax||0;
+  document.getElementById('q-expiry').value=q.expiry||'';
+  document.getElementById('q-currency').value=q.currency||'USD';
+  document.getElementById('quote-form-error').innerHTML='';
+  document.getElementById('err-q-customer').textContent='';
+  populateQuoteCustomers(q.customerId);
+  renderLineItems();renderQuoteAttachments();setQuoteModalFooter(q.status);
+  document.getElementById('quote-modal').style.display='flex';
+};
+
+function closeQuoteModal(){document.getElementById('quote-modal').style.display='none';}
+window.closeQuoteModal=closeQuoteModal;
+
+// ── SAVE ──
+window.saveQuote=function(newStatus){
+  const custId=document.getElementById('q-customer').value;
+  if(!custId){document.getElementById('err-q-customer').textContent='Required';return;}
+  document.getElementById('err-q-customer').textContent='';
+  const cust=state.data.customers.find(c=>c.id==custId);
+  const quotes=loadQuotes();
+  const sub=lineItems.reduce((s,li)=>s+lineTotal(li),0);
+  const tax=parseFloat(document.getElementById('q-tax').value||0)||0;
+  const existing=quotes.find(q=>q.id===editingQuoteId);
+  const qData={
+    id:editingQuoteId||'q_'+Date.now(),
+    number:document.getElementById('q-number').value||nextQuoteNumber(),
+    customerId:custId,customerName:cust?.name||cust?.company_name||'',customerEmail:cust?.email||'',
+    status:newStatus||'draft',
+    lineItems:JSON.parse(JSON.stringify(lineItems)),
+    attachments:quoteAttachments.map(a=>{const{file,...rest}=a;return rest;}),
+    notes:document.getElementById('q-notes').value,tax,
+    currency:document.getElementById('q-currency').value||'USD',
+    expiry:document.getElementById('q-expiry').value,
+    subtotal:sub,total:sub*(1+tax/100),
+    createdBy:state.currentUser?.id,
+    createdByName:state.currentUser?.firstName+(state.currentUser?.lastName?' '+state.currentUser.lastName:''),
+    createdAt:existing?.createdAt||new Date().toISOString(),
+    updatedAt:new Date().toISOString(),
+    katanaOrderId:existing?.katanaOrderId,katanaOrderNumber:existing?.katanaOrderNumber,
+  };
+  const idx=quotes.findIndex(q=>q.id===qData.id);
+  if(idx>-1)quotes[idx]=qData;else quotes.unshift(qData);
+  saveQuotes(quotes);
+  const labels={draft:'Draft saved',preapproval:'Submitted for pre-approval',approval:'Sent for final approval',approved:'Quote approved!',sent:'Quote sent!'};
+  toast(labels[newStatus]||'Quote saved','success');
+  closeQuoteModal();renderQuotes();
+};
+
+// ── SEND ──
+window.sendQuote=function(){
+  const quotes=loadQuotes();const idx=quotes.findIndex(q=>q.id===editingQuoteId);if(idx<0)return;
+  const q=quotes[idx];
+  const subject=encodeURIComponent(`Quote ${q.number}`);
+  const body=encodeURIComponent(`Dear ${q.customerName},\n\nPlease find Quote ${q.number} for ${q.currency||'USD'} ${fmtMoney(q.total)} attached.\n\n${q.notes||''}\n\nThank you.`);
+  window.open(`mailto:${q.customerEmail}?subject=${subject}&body=${body}`);
+  quotes[idx].status='sent';quotes[idx].updatedAt=new Date().toISOString();
+  saveQuotes(quotes);toast('Quote marked as sent','success');closeQuoteModal();renderQuotes();
+};
+
+// ── PDF ──
+window.downloadQuotePDF=function(){
+  const q=loadQuotes().find(x=>x.id===editingQuoteId);if(!q)return;
+  const currency=q.currency||'USD';
+  const frame=document.getElementById('pdf-frame');frame.style.display='block';
+  frame.innerHTML=`<div style="max-width:720px;margin:0 auto;">
+    <div class="pdf-no-print" style="display:flex;gap:12px;margin-bottom:24px">
+      <button onclick="window.print()" style="padding:8px 18px;background:#c8a96e;color:#1a1200;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer">🖨 Print / Save PDF</button>
+      <button onclick="document.getElementById('pdf-frame').style.display='none'" style="padding:8px 18px;background:#22272f;color:#e8eaed;border:none;border-radius:6px;font-size:13px;cursor:pointer">✕ Close</button>
+    </div>
+    <div style="display:flex;justify-content:space-between;margin-bottom:32px">
+      <div><div style="font-size:28px;font-weight:700;color:#c8a96e">QUOTE</div><div style="font-size:22px;font-weight:600">${q.number}</div></div>
+      <div style="text-align:right;font-size:13px;color:#555">
+        <div style="font-weight:600;font-size:16px;margin-bottom:4px">Cask &amp; Stream</div>
+        <div>Date: ${new Date(q.createdAt).toLocaleDateString()}</div>
+        ${q.expiry?`<div>Valid until: ${new Date(q.expiry).toLocaleDateString()}</div>`:''}
+        <div style="margin-top:4px">Prepared by: ${q.createdByName||'—'}</div>
+      </div>
+    </div>
+    <div style="margin-bottom:24px;padding:16px;background:#f8f8f8;border-radius:8px">
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#888;margin-bottom:6px">Bill To</div>
+      <div style="font-size:15px;font-weight:600">${q.customerName}</div>
+      <div style="color:#555">${q.customerEmail}</div>
+    </div>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:24px">
+      <thead><tr style="background:#f0f0f0">
+        <th style="padding:10px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#555">Product</th>
+        <th style="padding:10px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#555">Variant</th>
+        <th style="padding:10px 12px;text-align:center;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#555">Qty</th>
+        <th style="padding:10px 12px;text-align:right;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#555">Unit Price</th>
+        <th style="padding:10px 12px;text-align:center;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#555">Disc</th>
+        <th style="padding:10px 12px;text-align:right;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#555">Total</th>
+      </tr></thead>
+      <tbody>${(q.lineItems||[]).map(li=>{
+        const prod=state.data.products.find(p=>p.id==li.productId);
+        const variant=prod?.variants?.find(v=>v.id==li.variantId);
+        return`<tr style="border-bottom:1px solid #eee">
+          <td style="padding:10px 12px">${prod?.name||'—'}</td>
+          <td style="padding:10px 12px;color:#555">${variant?.name||variant?.sku||'—'}</td>
+          <td style="padding:10px 12px;text-align:center">${li.qty}</td>
+          <td style="padding:10px 12px;text-align:right">${currency} ${fmtMoney(li.unitPrice)}</td>
+          <td style="padding:10px 12px;text-align:center">${li.disc||0}%</td>
+          <td style="padding:10px 12px;text-align:right;font-weight:600">${currency} ${fmtMoney(lineTotal(li))}</td>
+        </tr>`;}).join('')}
+      </tbody>
+    </table>
+    <div style="display:flex;justify-content:flex-end;margin-bottom:24px">
+      <div style="min-width:240px">
+        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #eee"><span style="color:#555">Subtotal</span><span>${currency} ${fmtMoney(q.subtotal)}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #eee"><span style="color:#555">Tax (${q.tax||0}%)</span><span>${currency} ${fmtMoney((q.subtotal||0)*(q.tax||0)/100)}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:8px 0;font-weight:700;font-size:16px"><span>Total</span><span style="color:#c8a96e">${currency} ${fmtMoney(q.total)}</span></div>
+      </div>
+    </div>
+    ${q.notes?`<div style="padding:16px;background:#f8f8f8;border-radius:8px;font-size:13px;color:#555;line-height:1.6"><div style="font-weight:600;margin-bottom:6px">Notes &amp; Terms</div>${q.notes}</div>`:''}
+    ${(q.attachments||[]).length?`<div style="margin-top:16px;font-size:12px;color:#888">Attachments: ${q.attachments.map(a=>a.name).join(', ')}</div>`:''}
+  </div>`;
+};
+
+// ── PUSH TO KATANA ──
+window.pushToKatana=async function(){
+  const q=loadQuotes().find(x=>x.id===editingQuoteId);if(!q){toast('Quote not found','error');return;}
+  toast('Pushing to Katana…','info',6000);
+  try{
+    const rows=(q.lineItems||[]).filter(li=>li.productId).map(li=>({variant_id:li.variantId||li.productId,quantity:li.qty,unit_price:li.unitPrice,discount:li.disc||0}));
+    const payload={_type:'sales_order',customer_id:q.customerId,notes:`Quote ${q.number}\n${q.notes||''}`,sales_order_rows:rows};
+    const r=await fetch('/.netlify/functions/create-sales-order',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    const d=await r.json();if(!r.ok)throw new Error(d.error||'Failed');
+    const quotes=loadQuotes();const idx=quotes.findIndex(x=>x.id===q.id);
+    if(idx>-1){quotes[idx].katanaOrderId=d.id;quotes[idx].katanaOrderNumber=d.order_number;saveQuotes(quotes);}
+    toast(`Pushed to Katana as ${d.order_number||'sales order'} ✓`,'success');
+    closeQuoteModal();renderQuotes();
+  }catch(e){toast('Katana push failed: '+e.message,'error');}
+};
+
+// ── QUOTES LIST VIEW ──
+function renderQuotes(){
+  const quotes=loadQuotes();
+  const isAdmin=state.currentUser?.role==='admin';
+  const visible=isAdmin?quotes:quotes.filter(q=>q.createdBy===state.currentUser?.id||['approval','approved','sent'].includes(q.status));
+  const filtered=state.search?visible.filter(q=>(q.number||'').toLowerCase().includes(state.search)||(q.customerName||'').toLowerCase().includes(state.search)):visible;
+  rc(`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+    <div style="font-size:13px;color:var(--text3)">${filtered.length} quote${filtered.length!==1?'s':''}</div>
+    <button class="btn-primary" onclick="openNewQuote()">+ New Quote</button>
+  </div>
+  ${!filtered.length?`<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-title">No quotes yet</div><div class="empty-sub">Click + New Quote to build your first one.</div></div>`:`
+  <div class="card"><div class="table-wrap"><table><thead><tr><th>Quote #</th><th>Customer</th><th>Amount</th><th>By</th><th>Expiry</th><th>Katana</th><th>Status</th><th>Actions</th></tr></thead><tbody>
+    ${filtered.map(q=>`<tr>
+      <td style="font-family:var(--font-mono);color:var(--accent);cursor:pointer" onclick='openEditQuote(${JSON.stringify(q).replace(/'/g,"&apos;")})'>${q.number||'—'}</td>
+      <td style="font-weight:500">${q.customerName||'—'}</td>
+      <td style="font-family:var(--font-mono)">${fmtMoney(q.total)}</td>
+      <td style="color:var(--text3);font-size:12px">${q.createdByName||'—'}</td>
+      <td style="color:var(--text3);font-size:12px">${q.expiry?new Date(q.expiry).toLocaleDateString():'—'}</td>
+      <td>${q.katanaOrderNumber?`<span class="badge badge-teal">${q.katanaOrderNumber}</span>`:'<span class="badge badge-gray">—</span>'}</td>
+      <td>${quoteStageBadge(q.status)}</td>
+      <td style="white-space:nowrap">
+        <button class="btn-ghost" style="padding:4px 10px;font-size:11px" onclick='openEditQuote(${JSON.stringify(q).replace(/'/g,"&apos;")})'>Edit</button>
+        <button class="btn-ghost" style="padding:4px 10px;font-size:11px" onclick='previewPDF("${q.id}")'>PDF</button>
+        ${isAdmin?`<button class="btn-danger" style="padding:4px 8px;font-size:11px" onclick='deleteQuote("${q.id}")'>✕</button>`:''}
+      </td>
+    </tr>`).join('')}
+  </tbody></table></div></div>`}`);
+}
+
+window.previewPDF=function(qid){
+  const q=loadQuotes().find(x=>x.id===qid);if(!q)return;
+  editingQuoteId=qid;lineItems=q.lineItems||[];downloadQuotePDF();
+};
+window.deleteQuote=function(qid){
+  if(!confirm('Delete this quote?'))return;
+  saveQuotes(loadQuotes().filter(q=>q.id!==qid));toast('Quote deleted','info');renderQuotes();
 };
 
 updateDots();
