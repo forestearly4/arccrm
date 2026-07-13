@@ -1166,8 +1166,8 @@ document.getElementById('q-file-input').addEventListener('change',e=>{
 // ── DROPBOX BROWSER ──
 let dbxBrowserPath='';let dbxSelectedFiles=[];
 async function openDropboxBrowser(path){
-  dbxSelectedFiles=[];dbxBrowserPath=path||state.dropboxFolder||'/';
-  document.getElementById('dbx-browser-path').textContent=dbxBrowserPath;
+  dbxSelectedFiles=[];dbxBrowserPath=path||'';
+  document.getElementById('dbx-browser-path').textContent=dbxBrowserPath||'/';
   document.getElementById('dbx-attach-btn').disabled=true;
   document.getElementById('dbx-browser-modal').style.display='flex';
   await loadDropboxFolder(dbxBrowserPath);
@@ -1177,14 +1177,14 @@ window.openDropboxBrowser=openDropboxBrowser;
 async function loadDropboxFolder(path){
   const content=document.getElementById('dbx-browser-content');
   content.innerHTML='<div class="loading"><div class="loader"></div> Loading…</div>';
-  document.getElementById('dbx-browser-path').textContent=path;dbxBrowserPath=path;
+  document.getElementById('dbx-browser-path').textContent=path||'/';dbxBrowserPath=path;
   try{
-    const res=await dropboxPost('/files/list_folder',{path:path==='/'?'':path,limit:200});
+    const res=await dropboxPost('/files/list_folder',{path:path===''||path==='/'?'':path,limit:200});
     const entries=res.entries||[];
     if(!entries.length){content.innerHTML='<div style="color:var(--text3);font-size:13px;padding:20px;text-align:center">Empty folder</div>';return;}
     const folders=entries.filter(e=>e['.tag']==='folder').sort((a,b)=>a.name.localeCompare(b.name));
     const files=entries.filter(e=>e['.tag']==='file').sort((a,b)=>a.name.localeCompare(b.name));
-    const parentPath=path.split('/').slice(0,-1).join('/')||'/';
+    const parentPath=path.includes('/')?path.split('/').slice(0,-1).join('/')||'':'';
     const backBtn=path&&path!=='/'&&path!==''?`<div class="dbx-item" onclick="loadDropboxFolder('${parentPath}')"><span class="dbx-item-icon">⬆️</span><span class="dbx-item-name" style="color:var(--text3)">.. back</span></div>`:'';
     content.innerHTML=backBtn+
       folders.map(f=>`<div class="dbx-item" onclick="loadDropboxFolder('${f.path_display}')"><span class="dbx-item-icon">📁</span><span class="dbx-item-name">${f.name}</span><span class="dbx-item-meta">folder</span></div>`).join('')+
