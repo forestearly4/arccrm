@@ -2,7 +2,7 @@
  * arcCRM — Create Customer via Katana REST API
  */
 
-const KATANA_BASE = "https://open-api.katanamrp.com/v1";
+const KATANA_BASE = "https://api.katanamrp.com/v1";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",

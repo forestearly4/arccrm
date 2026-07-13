@@ -7,7 +7,7 @@
  * arcCRM reads that static file — zero browser CORS issues ever.
  */
 
-const KATANA_BASE = "https://open-api.katanamrp.com/v1";
+const KATANA_BASE = "https://api.katanamrp.com/v1";
 const GITHUB_API  = "https://api.github.com";
 
 const CORS = {
