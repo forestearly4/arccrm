@@ -535,7 +535,7 @@ async function proxyFetch({url,method='GET',headers={},body}){
   return data;
 }
 
-// Katana — POST customer via Netlify function (which uses Claude MCP)
+// Katana — POST customer via Netlify function (direct REST API)
 async function katanaCreateCustomer(payload){
   const r=await fetch('/.netlify/functions/create-customer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
   const d=await r.json();
@@ -553,7 +553,7 @@ async function dropboxUpload(filePath,arrayBuffer){
 
 // ══════════════════════════════════════════════════
 // SYNC
-// Katana: trigger Netlify function which uses Claude MCP, then read JSON file
+// Katana: trigger Netlify function (direct REST API), then read JSON file
 // ClickUp + Dropbox: direct proxy calls
 // ══════════════════════════════════════════════════
 async function syncAll(){
@@ -562,7 +562,7 @@ async function syncAll(){
 
   // ── Katana: trigger sync function then read result ──
   try{
-    toast('Syncing Katana via Claude MCP…','info',8000);
+    toast('Syncing Katana…','info',8000);
     const syncRes=await fetch('/.netlify/functions/sync',{method:'GET'});
     const syncData=await syncRes.json();
     if(!syncRes.ok)throw new Error(syncData.error||'Sync function failed');
@@ -882,14 +882,14 @@ function renderApiSettings(){
   const lastSync=state.lastKatanaSync?new Date(state.lastKatanaSync).toLocaleString():'Never';
   rc(`<div class="card" style="max-width:540px">
   <div class="card-title">API Settings</div>
-  <div style="font-size:12px;color:var(--text3);margin-bottom:20px;line-height:1.6">Katana syncs automatically via Claude MCP every hour and on manual sync. ClickUp and Dropbox use the Val Town proxy.</div>
+  <div style="font-size:12px;color:var(--text3);margin-bottom:20px;line-height:1.6">Katana syncs automatically every hour via Netlify function. ClickUp and Dropbox use the Val Town proxy.</div>
 
   <div class="form-section">
     <div class="form-section-title">Katana MRP</div>
     <div style="background:var(--bg3);border:0.5px solid var(--border);border-radius:var(--r);padding:12px 14px;font-size:13px;">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
         <div class="api-dot connected"></div>
-        <span style="color:var(--text)">Connected via Claude MCP</span>
+        <span style="color:var(--text)">Connected via Netlify function</span>
       </div>
       <div style="font-size:11px;color:var(--text3);font-family:var(--font-mono)">Last sync: ${lastSync}</div>
       <div style="margin-top:10px">
@@ -898,10 +898,10 @@ function renderApiSettings(){
     </div>
     <div style="font-size:11px;color:var(--text3);margin-top:8px;line-height:1.6">
       Environment variables required in Netlify dashboard:<br>
-      <code style="background:var(--bg4);padding:1px 5px;border-radius:3px;font-family:var(--font-mono)">ANTHROPIC_API_KEY</code> · 
-      <code style="background:var(--bg4);padding:1px 5px;border-radius:3px;font-family:var(--font-mono)">KATANA_MCP_TOKEN</code> · 
+      <code style="background:var(--bg4);padding:1px 5px;border-radius:3px;font-family:var(--font-mono)">KATANA_API_KEY</code> · 
       <code style="background:var(--bg4);padding:1px 5px;border-radius:3px;font-family:var(--font-mono)">GITHUB_TOKEN</code> · 
-      <code style="background:var(--bg4);padding:1px 5px;border-radius:3px;font-family:var(--font-mono)">GITHUB_REPO</code>
+      <code style="background:var(--bg4);padding:1px 5px;border-radius:3px;font-family:var(--font-mono)">GITHUB_REPO</code> ·
+      <code style="background:var(--bg4);padding:1px 5px;border-radius:3px;font-family:var(--font-mono)">GITHUB_BRANCH</code>
     </div>
   </div>
 
