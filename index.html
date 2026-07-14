@@ -1213,7 +1213,7 @@ const IMPORT_DEFS={
   },
   products:{
     fields:[{key:'sku',label:'SKU',req:true},{key:'name',label:'Product Name',req:true},{key:'price',label:'Selling Price',req:false},{key:'cost',label:'Cost Price',req:false},{key:'category',label:'Category',req:false},{key:'unit',label:'Unit',req:false},{key:'description',label:'Description',req:false}],
-    guesses:{sku:[/sku/i,/code/i,/item.?code/i,/product.?code/i,/part/i],name:[/^name/i,/product.?name/i,/title/i,/description/i],price:[/sell/i,/price/i,/msrp/i,/retail/i],cost:[/cost/i,/purchase/i,/buy/i,/wholesale/i],category:[/cat/i,/group/i,/type/i],unit:[/unit/i,/uom/i],description:[/^desc/i,/note/i,/detail/i]},
+    guesses:{sku:[/^sku$/i,/sku/i,/code/i,/item.?code/i,/product.?code/i,/part/i],name:[/product.?name/i,/item.?name/i,/^name$/i,/title/i],price:[/standard.?color/i,/sell/i,/^price$/i,/msrp/i,/retail/i,/list.?price/i,/unit.?price/i],cost:[/woodgrain/i,/cost/i,/purchase/i,/wholesale/i,/buy/i],category:[/^cat$/i,/category/i,/group/i,/segment/i],unit:[/^unit$/i,/uom/i],description:[/^desc/i,/note/i,/detail/i]},
   },
 };
 
@@ -1248,7 +1248,25 @@ async function processImportFile(file){
   try{
     const ext=file.name.split('.').pop().toLowerCase();
     if(ext==='csv'){const t=await file.text();const lines=t.split(/\r?\n/).filter(l=>l.trim());importHeaders=parseCSVLine(lines[0]);importRows=lines.slice(1).map(l=>parseCSVLine(l)).filter(r=>r.some(c=>c));}
-    else{await loadSheetJS();const buf=await file.arrayBuffer();const wb=XLSX.read(buf,{type:'array'});const ws=wb.Sheets[wb.SheetNames[0]];const data=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});importHeaders=(data[0]||[]).map(h=>String(h||'').trim());importRows=data.slice(1).filter(r=>r.some(c=>c!==''&&c!=null));}
+    else{
+      await loadSheetJS();
+      const buf=await file.arrayBuffer();
+      const wb=XLSX.read(buf,{type:'array'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const data=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+      // Find the actual header row — first row where a cell looks like a column header
+      // (contains SKU, Name, Price, Code, Product, Item, Description etc.)
+      const headerPatterns=[/sku/i,/product/i,/item/i,/name/i,/price/i,/code/i,/description/i,/cost/i,/category/i];
+      let headerRowIdx=0;
+      for(let i=0;i<Math.min(data.length,20);i++){
+        const row=(data[i]||[]).map(c=>String(c||'').trim()).filter(Boolean);
+        const matches=row.filter(c=>headerPatterns.some(p=>p.test(c)));
+        if(matches.length>=2){headerRowIdx=i;break;}
+      }
+      importHeaders=(data[headerRowIdx]||[]).map(h=>String(h||'').trim());
+      importRows=data.slice(headerRowIdx+1).filter(r=>r.some(c=>c!==''&&c!==null&&c!==undefined));
+      if(headerRowIdx>0)document.getElementById('import-file-info').textContent+=` (headers detected on row ${headerRowIdx+1})`;
+    }
     document.getElementById('import-file-info').textContent=`${file.name} · ${importHeaders.length} cols · ${importRows.length} rows`;
     showImportMapper();
   }catch(e){document.getElementById('import-error').innerHTML=`<div class="error-box">Failed to parse: ${e.message}</div>`;}
@@ -1279,7 +1297,7 @@ function runImportPreview(){
   const getCol=(row,key)=>{const hdr=colMap[key];if(!hdr)return'';const idx=importHeaders.indexOf(hdr);return idx>-1?String(row[idx]||'').trim():'';};
   importParsed=importRows.filter(r=>{const pk=importType==='customers'?'name':'sku';return getCol(r,pk);}).map(row=>{
     if(importType==='customers'){const name=getCol(row,'name');return{id:'c_'+Date.now()+'_'+Math.random().toString(36).slice(2,5),name,first:name.split(' ')[0]||'',last:name.split(' ').slice(1).join(' ')||'',email:getCol(row,'email'),phone:getCol(row,'phone'),company:getCol(row,'company'),city:getCol(row,'city'),state:getCol(row,'state'),country:getCol(row,'country'),type:getCol(row,'type'),createdAt:new Date().toISOString()};}
-    else{return{id:'p_'+Date.now()+'_'+Math.random().toString(36).slice(2,5),sku:getCol(row,'sku'),name:getCol(row,'name'),price:parseFloat(getCol(row,'price').replace(/[$,]/g,''))||0,cost:parseFloat(getCol(row,'cost').replace(/[$,]/g,''))||0,category:getCol(row,'category'),unit:getCol(row,'unit'),description:getCol(row,'description'),updatedAt:new Date().toISOString()};}
+    else{return{id:'p_'+Date.now()+'_'+Math.random().toString(36).slice(2,5),sku:getCol(row,'sku'),name:getCol(row,'name'),price:parseFloat(getCol(row,'price').replace(/[$,\s]/g,''))||0,cost:parseFloat(getCol(row,'cost').replace(/[$,\s]/g,''))||0,category:getCol(row,'category'),unit:getCol(row,'unit'),description:getCol(row,'description'),updatedAt:new Date().toISOString()};}
   });
   document.getElementById('import-s2').style.display='none';document.getElementById('import-s3').style.display='block';
   document.getElementById('import-preview-info').textContent=`— ${importParsed.length} rows`;
