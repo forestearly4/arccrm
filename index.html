@@ -1255,34 +1255,161 @@ async function processImportFile(file){
   document.getElementById('import-error').innerHTML='';
   try{
     const ext=file.name.split('.').pop().toLowerCase();
-    if(ext==='csv'){const t=await file.text();const lines=t.split(/\r?\n/).filter(l=>l.trim());importHeaders=parseCSVLine(lines[0]);importRows=lines.slice(1).map(l=>parseCSVLine(l)).filter(r=>r.some(c=>c));}
-    else{
-      await loadSheetJS();
+    await loadSheetJS();
+
+    let rawData=[];
+    if(ext==='csv'){
+      const t=await file.text();
+      const lines=t.split(/\r?\n/).filter(l=>l.trim());
+      rawData=lines.map(l=>parseCSVLine(l));
+    } else {
       const buf=await file.arrayBuffer();
       const wb=XLSX.read(buf,{type:'array'});
       const ws=wb.Sheets[wb.SheetNames[0]];
-      const data=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
-      // Find actual header row — must contain a cell that exactly says SKU or similar key identifiers
-      const skuPatterns=[/^sku$/i,/^item.?code$/i,/^product.?code$/i,/^part.?no$/i];
-      const namePatterns=[/^product.?name$/i,/^item.?name$/i,/^name$/i,/^description$/i,/^title$/i];
-      let headerRowIdx=0;
-      for(let i=0;i<Math.min(data.length,30);i++){
-        const row=(data[i]||[]).map(c=>String(c||'').trim());
-        const hasSku=row.some(c=>skuPatterns.some(p=>p.test(c)));
-        const hasName=row.some(c=>namePatterns.some(p=>p.test(c)));
-        if(hasSku&&hasName){headerRowIdx=i;break;}
-        // Also accept just SKU alone
-        if(hasSku&&row.filter(Boolean).length>=2){headerRowIdx=i;break;}
-      }
-      importHeaders=(data[headerRowIdx]||[]).map(h=>String(h||'').trim());
-      importRows=data.slice(headerRowIdx+1).filter(r=>r.some(c=>c!==''&&c!==null&&c!==undefined));
-      const detectedHeaders=importHeaders.filter(Boolean).join(', ');
-      if(headerRowIdx>0)document.getElementById('import-file-info').textContent+=` · headers on row ${headerRowIdx+1}: ${detectedHeaders}`;
+      rawData=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
     }
-    document.getElementById('import-file-info').textContent=`${file.name} · ${importHeaders.length} cols · ${importRows.length} rows`;
+
+    // ── Detect layout type ──────────────────────────────────────────
+    // GSD Pricing layout: no proper header row, fixed columns
+    // Col 2 = SKU, Col 3 = Product Name, Col 5 = Price, Col 7 = Cost
+    // Identified by: many rows where col2 looks like a SKU code and col5 is a number
+    const skuLike=/^[A-Z]{1,4}[\d\-\/\s][A-Z0-9\-\s]{0,12}$/i;
+    let gsdLikeRows=0;
+    for(let i=0;i<Math.min(rawData.length,50);i++){
+      const r=rawData[i];
+      const c2=String(r[2]||'').trim();
+      const c5=r[5];
+      if(c2&&skuLike.test(c2)&&typeof c5==='number'&&c5>0) gsdLikeRows++;
+    }
+    const isGSDLayout = importType==='products' && gsdLikeRows>=3;
+
+    if(isGSDLayout){
+      // ── GSD Pricing Layout — fixed column positions ──
+      document.getElementById('import-file-info').textContent=
+        `${file.name} · GSD pricing format detected · processing automatically`;
+      importParsed = parseGSDLayout(rawData);
+      // Skip mapper — go straight to preview
+      showGSDPreview();
+      return;
+    }
+
+    // ── Standard layout — find header row and show column mapper ──
+    const skuPatterns=[/^sku$/i,/^item.?code$/i,/^product.?code$/i,/^part.?no$/i,/^code$/i];
+    const namePatterns=[/^product.?name$/i,/^item.?name$/i,/^name$/i,/^title$/i];
+    let headerRowIdx=0;
+    for(let i=0;i<Math.min(rawData.length,30);i++){
+      const row=(rawData[i]||[]).map(c=>String(c||'').trim());
+      const hasSku=row.some(c=>skuPatterns.some(p=>p.test(c)));
+      const hasName=row.some(c=>namePatterns.some(p=>p.test(c)));
+      if(hasSku&&hasName){headerRowIdx=i;break;}
+      if(hasSku&&row.filter(Boolean).length>=2){headerRowIdx=i;break;}
+    }
+    importHeaders=(rawData[headerRowIdx]||[]).map(h=>String(h||'').trim());
+    importRows=rawData.slice(headerRowIdx+1).filter(r=>r.some(c=>c!==''&&c!==null&&c!==undefined));
+    const detectedHeaders=importHeaders.filter(Boolean).join(', ');
+    document.getElementById('import-file-info').textContent=
+      `${file.name} · ${importHeaders.length} cols · ${importRows.length} rows`+
+      (headerRowIdx>0?` · headers on row ${headerRowIdx+1}: ${detectedHeaders}`:'');
     showImportMapper();
+
   }catch(e){document.getElementById('import-error').innerHTML=`<div class="error-box">Failed to parse: ${e.message}</div>`;}
 }
+
+// ── GSD Pricing Layout Parser ──────────────────────────────────────
+function parseGSDLayout(rawData){
+  const SECTION_WORDS=['PRACTICE FACILITY','RANGE DIVIDERS','BALL CRATES','BAG STANDS',
+    'CLUB WASHERS','SCORE','TRASH','SIGN','YARDAGE','BEVERAGE','DRINK','CUSTOM',
+    'BALL WASHERS','TEES','ACCESSORY','PUTTING','SAND','DIVOT','RULES','STARTER',
+    'FLAG','HOLE','BENCH','SHELTER','CART','STANDARD COLORS','WOODGRAIN','FURNITURE',
+    'PATIO','CHAIR','TABLE','SOFA','CUSHION','SEATING','ROPE','POST','BARRIER',
+    'SHOE','WASTE','WATER','COOLER','ICE','BAR','CLOCK','TENNIS','MISC','ITEMS',
+    'INFORMATION','MESSAGE','EASEL','SIGN','RESIN','HDPE','MARKER','STAKE',
+    'SCRUSHER','BRUSH','CATALOG','MISTAKE','CODED'];
+
+  function looksLikeSection(s){
+    if(!s)return true;
+    const u=s.toUpperCase().trim();
+    if(SECTION_WORDS.some(w=>u.includes(w)))return true;
+    // All-caps string with no digits and > 6 chars = section header
+    if(u===u.toUpperCase()&&!/\d/.test(u)&&u.replace(/\s/g,'').length>6)return true;
+    return false;
+  }
+
+  function parsePrice(v){
+    if(v===null||v===undefined||v==='')return 0;
+    if(typeof v==='number')return Math.round(v*100)/100;
+    try{return Math.round(parseFloat(String(v).replace(/[$,\s]/g,''))*100)/100;}catch{return 0;}
+  }
+
+  const results=[];
+  let currentCategory='';
+  const seen=new Set();
+
+  for(const row of rawData){
+    const col2=String(row[2]||'').trim();
+    const col3=String(row[3]||'').trim();
+    const col5=row[5];
+    const col7=row[7];
+
+    // Update category from col2 or col3 section headers
+    if(!col3&&col2&&looksLikeSection(col2)){
+      if(col2.toLowerCase()!=='page'&&col2.toLowerCase()!=='cat')
+        currentCategory=col2;
+      continue;
+    }
+    if(col2&&looksLikeSection(col2)&&!parsePrice(col5)){
+      if(col3&&!looksLikeSection(col3)) currentCategory=col3;
+      else if(col2.toLowerCase()!=='page'&&col2.toLowerCase()!=='cat') currentCategory=col2;
+      continue;
+    }
+
+    if(!col2||!col3)continue;
+
+    const price=parsePrice(col5);
+    const cost=parsePrice(col7);
+    if(price===0&&cost===0)continue;
+
+    // De-duplicate by SKU+name
+    const key=col2+'|'+col3;
+    if(seen.has(key))continue;
+    seen.add(key);
+
+    results.push({
+      id:'p_'+Math.random().toString(36).slice(2,10),
+      sku:col2,name:col3,price,cost,
+      category:currentCategory.replace(/\s+/g,' ').trim(),
+      unit:'pcs',description:'',
+      updatedAt:new Date().toISOString()
+    });
+  }
+  return results;
+}
+
+// ── GSD Preview (skips mapper, goes straight to preview+save) ──────
+function showGSDPreview(){
+  ['import-s1','import-s2','import-s4'].forEach(id=>document.getElementById(id).style.display='none');
+  document.getElementById('import-s3').style.display='block';
+  document.getElementById('import-preview-info').textContent=
+    `— ${importParsed.length} products across ${[...new Set(importParsed.map(p=>p.category))].filter(Boolean).length} categories`;
+  document.getElementById('import-preview-table').innerHTML=`
+    <table><thead><tr><th>SKU</th><th>Name</th><th>Price</th><th>Cost</th><th>Category</th></tr></thead><tbody>
+      ${importParsed.slice(0,30).map(p=>`<tr>
+        <td style="font-family:var(--font-mono);color:var(--accent);font-size:12px">${p.sku}</td>
+        <td style="font-size:12px">${p.name}</td>
+        <td style="font-family:var(--font-mono);font-size:12px">${p.price?'$'+p.price.toFixed(2):'—'}</td>
+        <td style="font-family:var(--font-mono);font-size:12px;color:var(--text3)">${p.cost?'$'+p.cost.toFixed(2):'—'}</td>
+        <td style="color:var(--text3);font-size:11px">${p.category||'—'}</td>
+      </tr>`).join('')}
+      ${importParsed.length>30?`<tr><td colspan="5" style="color:var(--text3);text-align:center;padding:12px;font-size:12px">… and ${importParsed.length-30} more</td></tr>`:''}
+    </tbody></table>`;
+  document.getElementById('import-warnings').innerHTML=
+    `<div style="font-size:12px;color:var(--text3);margin-top:8px">GSD pricing format — columns auto-detected: SKU (col C), Product Name (col D), Standard Colors price (col F), Woodgrain Cost (col H)</div>`;
+  document.getElementById('import-footer').innerHTML=
+    '<button class="btn-ghost" onclick="closeImportModal()">Cancel</button>'+
+    '<button class="btn-ghost" onclick="openImportModal(importType)">↩ Re-upload</button>'+
+    '<button class="btn-primary" onclick="runImport()">⬆ Save to GitHub</button>';
+}
+window.showGSDPreview=showGSDPreview;
 
 function guessImportMapping(){
   const def=IMPORT_DEFS[importType];const map={};
