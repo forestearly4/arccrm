@@ -1,6 +1,7 @@
-# arcCRM — Netlify config
-# Sync function calls Katana REST API server-side (no CORS issues)
-# then writes katana-data.json to GitHub repo
+# arcCRM v3
+# Katana: inventory + SO status only
+# ClickUp: bidirectional sales space sync
+# Customers + Products: managed in GitHub JSON files
 
 [build]
   publish = "."
@@ -9,12 +10,14 @@
   directory = "netlify/functions"
   node_bundler = "esbuild"
 
-# Auto-sync Katana every hour
+# Hourly auto-sync
 [functions.sync]
   schedule = "@hourly"
 
-# Environment variables — set in Netlify dashboard → Site config → Environment variables:
-# KATANA_API_KEY   → your Katana API key (sk-...)
-# GITHUB_TOKEN     → GitHub personal access token (repo scope)
-# GITHUB_REPO      → forestearly4/arccrm
-# GITHUB_BRANCH    → main
+# Environment variables (set in Netlify dashboard):
+# KATANA_API_KEY     — Katana API key (sk-...)
+# CLICKUP_API_KEY    — ClickUp API token (pk_...)
+# CLICKUP_SPACE_ID   — ClickUp Sales space ID
+# GITHUB_TOKEN       — GitHub personal access token (repo scope)
+# GITHUB_REPO        — forestearly4/arccrm
+# GITHUB_BRANCH      — main
