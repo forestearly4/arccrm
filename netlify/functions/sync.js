@@ -1,118 +1,74 @@
 /**
- * arcCRM Sync Function
- * Runs @hourly (scheduled) AND on-demand via GET /.netlify/functions/sync
- *
- * Calls Katana REST API directly — no CORS issues server-side.
- * Writes katana-data.json to GitHub repo.
- * arcCRM reads that static file — zero browser CORS issues ever.
+ * arcCRM Sync — Katana only
+ * Pulls: inventory levels per SKU + sales order statuses
+ * Writes: katana-data.json to GitHub
+ * Runs: @hourly + on-demand GET
  */
+const { writeGitHubFile } = require("./github");
 
-const KATANA_BASE = "https://api.katanamrp.com/v1";
-const GITHUB_API  = "https://api.github.com";
-
-const CORS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
-};
+const KATANA = "https://api.katanamrp.com/v1";
+const CORS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type" };
 
 function respond(status, body) {
-  return {
-    statusCode: status,
-    headers: { ...CORS, "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  };
+  return { statusCode: status, headers: { ...CORS, "Content-Type": "application/json" }, body: JSON.stringify(body) };
 }
 
-async function katanaGet(path, apiKey) {
-  const r = await fetch(KATANA_BASE + path, {
-    headers: { Authorization: `Bearer ${apiKey}` },
-  });
-  if (!r.ok) throw new Error(`Katana ${r.status} on ${path}: ${r.statusText}`);
+async function katanaGet(path, key) {
+  const r = await fetch(KATANA + path, { headers: { Authorization: `Bearer ${key}` } });
+  if (!r.ok) throw new Error(`Katana ${r.status} ${path}: ${r.statusText}`);
   return r.json();
-}
-
-async function writeToGitHub(data) {
-  const token  = process.env.GITHUB_TOKEN;
-  const repo   = process.env.GITHUB_REPO   || "forestearly4/arccrm";
-  const branch = process.env.GITHUB_BRANCH || "main";
-  const path   = "katana-data.json";
-
-  if (!token) throw new Error("Missing GITHUB_TOKEN env var");
-
-  const fileUrl = `${GITHUB_API}/repos/${repo}/contents/${path}`;
-
-  // Get existing SHA so GitHub lets us update
-  let sha;
-  try {
-    const existing = await fetch(`${fileUrl}?ref=${branch}`, {
-      headers: { Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json" },
-    });
-    if (existing.ok) sha = (await existing.json()).sha;
-  } catch (_) {}
-
-  const content = Buffer.from(
-    JSON.stringify({ ...data, synced_at: new Date().toISOString() }, null, 2)
-  ).toString("base64");
-
-  const res = await fetch(fileUrl, {
-    method: "PUT",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: "application/vnd.github+json",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      message: `sync: Katana data ${new Date().toISOString()}`,
-      content,
-      branch,
-      ...(sha ? { sha } : {}),
-    }),
-  });
-
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`GitHub write ${res.status}: ${err}`);
-  }
 }
 
 exports.handler = async function (event) {
   if (event.httpMethod === "OPTIONS") return { statusCode: 204, headers: CORS, body: "" };
 
-  const apiKey = process.env.KATANA_API_KEY;
-  if (!apiKey) return respond(500, { error: "Missing KATANA_API_KEY env var" });
+  const key = process.env.KATANA_API_KEY;
+  if (!key) return respond(500, { error: "Missing KATANA_API_KEY" });
 
-  console.log("arcCRM Katana sync started", new Date().toISOString());
+  console.log("Katana sync started", new Date().toISOString());
 
   try {
-    // Fetch all four data sets in parallel
-    const [cust, so, mo, prod] = await Promise.all([
-      katanaGet("/customers?limit=500", apiKey),
-      katanaGet("/sales_orders?limit=500", apiKey),
-      katanaGet("/manufacturing_orders?limit=500", apiKey),
-      katanaGet("/products?limit=500", apiKey),
+    // Fetch inventory levels and sales orders in parallel
+    const [invRes, soRes] = await Promise.all([
+      katanaGet("/products?limit=500", key),
+      katanaGet("/sales_orders?limit=500", key),
     ]);
 
-    const data = {
-      customers:             cust.data || cust || [],
-      sales_orders:          so.data   || so   || [],
-      manufacturing_orders:  mo.data   || mo   || [],
-      products:              prod.data || prod || [],
-    };
+    // Extract only what we need — inventory levels per SKU
+    const rawProducts = invRes.data || invRes || [];
+    const inventory = rawProducts.map(p => ({
+      id:         p.id,
+      sku:        p.sku,
+      name:       p.name,
+      in_stock:   p.in_stock ?? p.stock_quantity ?? 0,
+      committed:  p.committed_stock ?? 0,
+      expected:   p.expected_stock ?? 0,
+      unit:       p.unit_of_measure || "",
+    }));
 
-    const counts = {
-      customers:            data.customers.length,
-      sales_orders:         data.sales_orders.length,
-      manufacturing_orders: data.manufacturing_orders.length,
-      products:             data.products.length,
-    };
+    // Extract sales order statuses
+    const rawOrders = soRes.data || soRes || [];
+    const sales_orders = rawOrders.map(o => ({
+      id:             o.id,
+      order_number:   o.order_number,
+      customer_id:    o.customer_id || o.contact?.id,
+      customer_name:  o.customer_name || o.contact?.name || "",
+      status:         o.status,
+      total:          o.total_price || o.total || 0,
+      created_at:     o.created_at,
+      delivery_date:  o.delivery_date,
+      notes:          o.notes,
+    }));
 
-    console.log("Fetched:", counts);
+    const data = { inventory, sales_orders };
+    await writeGitHubFile("katana-data.json", data);
 
-    await writeToGitHub(data);
-    console.log("Written to GitHub");
-
-    return respond(200, { success: true, synced_at: new Date().toISOString(), counts });
+    console.log(`Synced ${inventory.length} SKUs, ${sales_orders.length} orders`);
+    return respond(200, {
+      success: true,
+      synced_at: new Date().toISOString(),
+      counts: { inventory: inventory.length, sales_orders: sales_orders.length },
+    });
   } catch (err) {
     console.error("Sync failed:", err.message);
     return respond(500, { success: false, error: err.message });
