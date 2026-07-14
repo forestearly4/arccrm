@@ -421,8 +421,8 @@ tbody tr:hover td{background:var(--bg3);}
       <div class="form-grid">
         <div class="form-group"><label class="form-label">SKU <span class="req">*</span></label><input class="form-input" id="pm-sku" type="text" placeholder="SKU-001"><div class="field-error" id="err-pm-sku"></div></div>
         <div class="form-group"><label class="form-label">Name <span class="req">*</span></label><input class="form-input" id="pm-name" type="text" placeholder="Product name"><div class="field-error" id="err-pm-name"></div></div>
-        <div class="form-group"><label class="form-label">Selling Price</label><input class="form-input" id="pm-price" type="number" min="0" step="0.01" placeholder="0.00"></div>
-        <div class="form-group"><label class="form-label">Cost Price</label><input class="form-input" id="pm-cost" type="number" min="0" step="0.01" placeholder="0.00"></div>
+        <div class="form-group"><label class="form-label">Standard Colors Price</label><input class="form-input" id="pm-price" type="number" min="0" step="0.01" placeholder="0.00"></div>
+        <div class="form-group"><label class="form-label">Woodgrain / Alt Price</label><input class="form-input" id="pm-cost" type="number" min="0" step="0.01" placeholder="0.00"></div>
         <div class="form-group"><label class="form-label">Category</label><input class="form-input" id="pm-category" type="text" placeholder="Category"></div>
         <div class="form-group"><label class="form-label">Unit</label><input class="form-input" id="pm-unit" type="text" placeholder="pcs"></div>
         <div class="form-group span2"><label class="form-label">Description</label><textarea class="form-textarea" id="pm-description" placeholder="Product description…" style="min-height:56px"></textarea></div>
@@ -908,7 +908,7 @@ function renderProducts(){
       <button class="btn-ghost" style="padding:6px 12px;font-size:12px" onclick="openImportModal('products')">⬆ Import from Excel</button>
       <button class="btn-ghost" style="padding:6px 12px;font-size:12px;color:var(--red);border-color:rgba(248,113,113,0.3)" onclick="confirmClearProducts()">🗑 Clear All</button>
     </div>
-    <div class="card"><div class="table-wrap"><table><thead><tr><th>SKU</th><th>Name</th><th>Category</th><th>Price</th><th>Cost</th><th>Stock (Katana)</th><th></th></tr></thead><tbody>
+    <div class="card"><div class="table-wrap"><table><thead><tr><th>SKU</th><th>Name</th><th>Category</th><th>Std Price</th><th>Woodgrain</th><th>Stock (Katana)</th><th></th></tr></thead><tbody>
       ${items.length?items.map(p=>{
         const inv=state.data.inventory.find(i=>i.sku===p.sku);
         const stock=inv?.in_stock??'—';
@@ -1212,7 +1212,7 @@ const IMPORT_DEFS={
     guesses:{name:[/name/i,/customer/i,/contact/i],email:[/email/i,/mail/i],phone:[/phone/i,/tel/i,/mobile/i],company:[/company/i,/organization/i,/business/i,/club/i,/facility/i],city:[/city/i,/town/i],state:[/state/i,/province/i],country:[/country/i],type:[/type/i,/tier/i,/segment/i]},
   },
   products:{
-    fields:[{key:'sku',label:'SKU',req:true},{key:'name',label:'Product Name',req:true},{key:'price',label:'Selling Price',req:false},{key:'cost',label:'Cost Price',req:false},{key:'category',label:'Category',req:false},{key:'unit',label:'Unit',req:false},{key:'description',label:'Description',req:false}],
+    fields:[{key:'sku',label:'SKU',req:true},{key:'name',label:'Product Name',req:true},{key:'price',label:'Standard / Selling Price',req:false},{key:'cost',label:'Woodgrain / Alt Price',req:false},{key:'category',label:'Category',req:false},{key:'unit',label:'Unit',req:false},{key:'description',label:'Description',req:false}],
     guesses:{
       sku:[/^sku$/i,/^item.?code$/i,/^product.?code$/i,/^part/i],
       name:[/^product.?name$/i,/^item.?name$/i,/^name$/i,/^title$/i],
@@ -1392,7 +1392,7 @@ function showGSDPreview(){
   document.getElementById('import-preview-info').textContent=
     `— ${importParsed.length} products across ${[...new Set(importParsed.map(p=>p.category))].filter(Boolean).length} categories`;
   document.getElementById('import-preview-table').innerHTML=`
-    <table><thead><tr><th>SKU</th><th>Name</th><th>Price</th><th>Cost</th><th>Category</th></tr></thead><tbody>
+    <table><thead><tr><th>SKU</th><th>Name</th><th>Std Price</th><th>Woodgrain</th><th>Category</th></tr></thead><tbody>
       ${importParsed.slice(0,30).map(p=>`<tr>
         <td style="font-family:var(--font-mono);color:var(--accent);font-size:12px">${p.sku}</td>
         <td style="font-size:12px">${p.name}</td>
@@ -1481,7 +1481,7 @@ window.downloadImportTemplate=async function(){
     ws['!cols']=[{wch:20},{wch:24},{wch:14},{wch:20},{wch:14},{wch:8},{wch:10},{wch:14}];
     XLSX.utils.book_append_sheet(wb,ws,'Customers');
   }else{
-    const ws=XLSX.utils.aoa_to_sheet([['SKU','Name','Selling Price','Cost Price','Category','Unit','Description'],['SKU-001','Example Product','29.99','15.00','General','pcs','A sample product']]);
+    const ws=XLSX.utils.aoa_to_sheet([['SKU','Name','Standard Colors Price','Woodgrain / Alt Price','Category','Unit','Description'],['SKU-001','Example Product','29.99','15.00','General','pcs','A sample product']]);
     ws['!cols']=[{wch:12},{wch:24},{wch:14},{wch:12},{wch:14},{wch:8},{wch:32}];
     XLSX.utils.book_append_sheet(wb,ws,'Products');
   }
