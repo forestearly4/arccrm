@@ -456,8 +456,20 @@ tbody tr:hover td{background:var(--bg3);}
       </div>
       <div class="form-section">
         <div class="form-section-title">Line Items <button onclick="addLineItem()" style="margin-left:auto;padding:3px 10px;font-size:11px;background:var(--accent-dim);color:var(--accent);border:0.5px solid var(--accent);border-radius:var(--r);cursor:pointer;font-family:var(--font-body)">+ Add Item</button></div>
-        <div class="table-wrap">
-          <table style="font-size:13px"><thead><tr><th style="width:32%">Product</th><th style="width:18%">Variant</th><th style="width:9%">Qty</th><th style="width:14%">Unit Price</th><th style="width:9%">Disc%</th><th style="width:12%">Total</th><th style="width:6%"></th></tr></thead><tbody id="line-items-body"></tbody></table>
+        <div class="table-wrap" style="overflow-x:auto">
+          <table style="font-size:12px;min-width:900px"><thead><tr>
+            <th style="width:18%">Product</th>
+            <th style="width:8%">SKU</th>
+            <th style="width:11%">Main Color</th>
+            <th style="width:11%">Trim Color</th>
+            <th style="width:10%">Logo Type</th>
+            <th style="width:8%">Price Type</th>
+            <th style="width:6%">Qty</th>
+            <th style="width:10%">Unit Price</th>
+            <th style="width:7%">Disc%</th>
+            <th style="width:9%">Total</th>
+            <th style="width:2%"></th>
+          </tr></thead><tbody id="line-items-body"></tbody></table>
         </div>
         <div style="display:flex;justify-content:flex-end;gap:24px;margin-top:12px"><span style="font-size:12px;color:var(--text3)">Subtotal</span><span style="font-family:var(--font-mono);min-width:80px;text-align:right" id="q-subtotal">$0.00</span></div>
         <div style="display:flex;justify-content:flex-end;gap:16px;margin-top:6px;align-items:center"><span style="font-size:12px;color:var(--text3)">Tax %</span><input type="number" id="q-tax" value="0" min="0" max="100" step="0.1" style="width:60px;background:var(--bg3);border:0.5px solid var(--border2);color:var(--text);padding:3px 7px;border-radius:var(--r);font-size:12px;font-family:var(--font-mono);text-align:right;outline:none" oninput="recalcTotals()"></div>
@@ -1537,25 +1549,52 @@ function recalcTotals(){
 }
 window.recalcTotals=recalcTotals;
 
+// ── COLOR + LOGO CONSTANTS ─────────────────────────────────────────
+const COLORS=['Milwaukee Brown','Cedar Bright','White','Driftwood Gray','Sand Gray','Light Gray','Black','Weathered Wood','Cherrywood','Patriot Blue','Turf Green','Red Cardinal','Red','Bright Orange Tangerine','Lemon Yellow','Aruba Blue','Blue','Tropical Lime','Bright Purple','Pink','Green','Birchwood Natural','Teak','Antique Mahogany','Walnut Brazilian','Walnut','Coastal Gray'];
+const LOGO_TYPES=['Color Vinyl','Cast Aluminum','Cast Bronze','Routed Only','No Logo','Other'];
+function colorOpts(sel){return`<option value="">— None —</option>`+COLORS.map(c=>`<option value="${c}" ${sel===c?'selected':''}>${c}</option>`).join('');}
+function logoOpts(sel){return`<option value="">— None —</option>`+LOGO_TYPES.map(l=>`<option value="${l}" ${sel===l?'selected':''}>${l}</option>`).join('');}
+function priceTypeOpts(sel){return[{v:'standard',l:'Std Colors'},{v:'woodgrain',l:'Woodgrain'}].map(pt=>`<option value="${pt.v}" ${(sel||'standard')===pt.v?'selected':''}>${pt.l}</option>`).join('');}
+
 function renderLineItems(){
   const prods=state.data.products||[];
   const body=document.getElementById('line-items-body');if(!body)return;
-  if(!lineItems.length){body.innerHTML=`<tr><td colspan="7" style="color:var(--text3);text-align:center;padding:20px;font-size:13px">No items — click + Add Item</td></tr>`;return;}
+  if(!lineItems.length){body.innerHTML=`<tr><td colspan="11" style="color:var(--text3);text-align:center;padding:20px;font-size:12px">No items — click + Add Item</td></tr>`;return;}
   body.innerHTML=lineItems.map(li=>{
-    const prod=prods.find(p=>p.id===li.productId)||null;
+    const prodByName=`<option value="">— by name —</option>`+prods.map(p=>`<option value="${p.id}" ${li.productId===p.id?'selected':''}>${p.name||p.sku}</option>`).join('');
+    const prodBySku=`<option value="">— by SKU —</option>`+prods.map(p=>`<option value="${p.id}" ${li.productId===p.id?'selected':''}>${p.sku||p.name}</option>`).join('');
     return`<tr>
-      <td><select class="q-select" onchange="onProductChange('${li.id}',this.value)"><option value="">— Product —</option>${prods.map(p=>`<option value="${p.id}" ${li.productId===p.id?'selected':''}>${p.name||p.sku}</option>`).join('')}</select></td>
-      <td><input class="q-input" type="text" value="${li.variant||''}" placeholder="variant / notes" onchange="lineItems.find(l=>l.id==='${li.id}').variant=this.value"></td>
-      <td><input class="q-input" type="number" min="1" value="${li.qty}" style="width:60px" onchange="lineItems.find(l=>l.id==='${li.id}').qty=parseFloat(this.value)||1;recalcTotals()"></td>
-      <td><input class="q-input" type="number" min="0" step="0.01" value="${li.unitPrice}" style="width:80px" onchange="lineItems.find(l=>l.id==='${li.id}').unitPrice=parseFloat(this.value)||0;recalcTotals()"></td>
-      <td><input class="q-input" type="number" min="0" max="100" value="${li.disc||0}" style="width:55px" onchange="lineItems.find(l=>l.id==='${li.id}').disc=parseFloat(this.value)||0;recalcTotals()"></td>
-      <td style="font-family:var(--font-mono);color:var(--accent);text-align:right">${fmtMoney(lineTotal(li))}</td>
+      <td><select class="q-select" onchange="onProductChange('${li.id}',this.value)">${prodByName}</select></td>
+      <td><select class="q-select" onchange="onProductChange('${li.id}',this.value)">${prodBySku}</select></td>
+      <td><select class="q-select" onchange="liSet('${li.id}','mainColor',this.value)">${colorOpts(li.mainColor)}</select></td>
+      <td><select class="q-select" onchange="liSet('${li.id}','trimColor',this.value)">${colorOpts(li.trimColor)}</select></td>
+      <td><select class="q-select" onchange="liSet('${li.id}','logoType',this.value)">${logoOpts(li.logoType)}</select></td>
+      <td><select class="q-select" onchange="onPriceTypeChange('${li.id}',this.value)">${priceTypeOpts(li.priceType)}</select></td>
+      <td><input class="q-input" type="number" min="1" value="${li.qty}" style="width:52px" onchange="liSet('${li.id}','qty',parseFloat(this.value)||1);recalcTotals()"></td>
+      <td><input class="q-input" type="number" min="0" step="0.01" value="${li.unitPrice}" style="width:72px" onchange="liSet('${li.id}','unitPrice',parseFloat(this.value)||0);recalcTotals()"></td>
+      <td><input class="q-input" type="number" min="0" max="100" value="${li.disc||0}" style="width:48px" onchange="liSet('${li.id}','disc',parseFloat(this.value)||0);recalcTotals()"></td>
+      <td style="font-family:var(--font-mono);color:var(--accent);text-align:right;white-space:nowrap">${fmtMoney(lineTotal(li))}</td>
       <td><button class="rm-btn" onclick="lineItems=lineItems.filter(l=>l.id!=='${li.id}');renderLineItems()">✕</button></td>
     </tr>`;
   }).join('');recalcTotals();
 }
-window.addLineItem=function(){lineItems.push({id:'li_'+Date.now(),productId:'',variant:'',qty:1,unitPrice:0,disc:0});renderLineItems();};
-window.onProductChange=function(id,pid){const li=lineItems.find(l=>l.id===id);if(!li)return;li.productId=pid;const p=state.data.products.find(p=>p.id===pid);if(p)li.unitPrice=p.price||0;renderLineItems();};
+
+window.liSet=function(id,field,value){const li=lineItems.find(l=>l.id===id);if(li)li[field]=value;};
+window.addLineItem=function(){lineItems.push({id:'li_'+Date.now(),productId:'',mainColor:'',trimColor:'',logoType:'',priceType:'standard',qty:1,unitPrice:0,disc:0});renderLineItems();};
+window.onProductChange=function(id,pid){
+  const li=lineItems.find(l=>l.id===id);if(!li)return;
+  li.productId=pid;
+  const p=state.data.products.find(p=>p.id===pid);
+  if(p)li.unitPrice=(li.priceType==='woodgrain')?(p.cost||0):(p.price||0);
+  renderLineItems();
+};
+window.onPriceTypeChange=function(id,ptype){
+  const li=lineItems.find(l=>l.id===id);if(!li)return;
+  li.priceType=ptype;
+  const p=state.data.products.find(p=>p.id===li.productId);
+  if(p)li.unitPrice=(ptype==='woodgrain')?(p.cost||0):(p.price||0);
+  renderLineItems();
+};
 
 function renderQuoteAttachments(){
   const el=document.getElementById('q-attachments');if(!el)return;
@@ -1700,9 +1739,9 @@ window.downloadQuotePDF=function(){
     </div>
     <table style="width:100%;border-collapse:collapse;margin-bottom:24px">
       <thead><tr style="background:#f0f0f0">
-        ${['Product','Variant / Notes','Qty','Unit Price','Disc','Total'].map(h=>`<th style="padding:10px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#555">${h}</th>`).join('')}
+        ${['Product','SKU','Main Color','Trim Color','Logo','Qty','Unit Price','Disc','Total'].map(h=>`<th style="padding:8px 10px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#555">${h}</th>`).join('')}
       </tr></thead>
-      <tbody>${(q.lineItems||[]).map(li=>{const p=state.data.products.find(x=>x.id===li.productId);return`<tr style="border-bottom:1px solid #eee"><td style="padding:10px 12px">${p?.name||'—'}</td><td style="padding:10px 12px;color:#555">${li.variant||'—'}</td><td style="padding:10px 12px;text-align:center">${li.qty}</td><td style="padding:10px 12px;text-align:right">${currency} ${fmtMoney(li.unitPrice)}</td><td style="padding:10px 12px;text-align:center">${li.disc||0}%</td><td style="padding:10px 12px;text-align:right;font-weight:600">${currency} ${fmtMoney(lineTotal(li))}</td></tr>`;}).join('')}</tbody>
+      <tbody>${(q.lineItems||[]).map(li=>{const p=state.data.products.find(x=>x.id===li.productId);const priceLabel=li.priceType==='woodgrain'?'(WG)':'';return`<tr style="border-bottom:1px solid #eee"><td style="padding:8px 10px">${p?.name||'—'}</td><td style="padding:8px 10px;color:#555;font-size:11px;font-family:monospace">${p?.sku||'—'}</td><td style="padding:8px 10px;font-size:11px">${li.mainColor||'—'}</td><td style="padding:8px 10px;font-size:11px">${li.trimColor||'—'}</td><td style="padding:8px 10px;font-size:11px">${li.logoType||'—'}</td><td style="padding:8px 10px;text-align:center">${li.qty}</td><td style="padding:8px 10px;text-align:right">${currency} ${fmtMoney(li.unitPrice)} ${priceLabel}</td><td style="padding:8px 10px;text-align:center">${li.disc||0}%</td><td style="padding:8px 10px;text-align:right;font-weight:600">${currency} ${fmtMoney(lineTotal(li))}</td></tr>`;}).join('')}</tbody>
     </table>
     <div style="display:flex;justify-content:flex-end;margin-bottom:24px">
       <div style="min-width:240px">
