@@ -28,22 +28,23 @@ exports.handler = async function (event) {
   console.log("Katana sync started", new Date().toISOString());
 
   try {
-    // Fetch inventory levels and sales orders in parallel
-    const [invRes, soRes] = await Promise.all([
-      katanaGet("/products?limit=500", key),
+    // Fetch material inventory levels and sales orders in parallel
+    // Materials = raw inputs (HDPE, aluminum, etc.) — not finished goods
+    const [matRes, soRes] = await Promise.all([
+      katanaGet("/materials?limit=500", key),
       katanaGet("/sales_orders?limit=500", key),
     ]);
 
-    // Extract only what we need — inventory levels per SKU
-    const rawProducts = invRes.data || invRes || [];
-    const inventory = rawProducts.map(p => ({
-      id:         p.id,
-      sku:        p.sku,
-      name:       p.name,
-      in_stock:   p.in_stock ?? p.stock_quantity ?? 0,
-      committed:  p.committed_stock ?? 0,
-      expected:   p.expected_stock ?? 0,
-      unit:       p.unit_of_measure || "",
+    // Extract material inventory levels
+    const rawMaterials = matRes.data || matRes || [];
+    const inventory = rawMaterials.map(m => ({
+      id:        m.id,
+      sku:       m.sku || m.variant_code || "",
+      name:      m.name,
+      in_stock:  m.in_stock ?? m.stock_quantity ?? m.quantity ?? 0,
+      committed: m.committed_stock ?? m.committed ?? 0,
+      expected:  m.expected_stock ?? m.expected ?? 0,
+      unit:      m.unit_of_measure || m.unit || "",
     }));
 
     // Extract sales order statuses
