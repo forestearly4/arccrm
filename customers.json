@@ -1,0 +1,24 @@
+{
+  "customers": [
+    {
+      "id": "c_1784147663825",
+      "name": "Jeffrey Burke",
+      "first": "Jeffrey",
+      "last": "Burke",
+      "email": "jeff@golfsignco.com",
+      "company": "GSD",
+      "phone": "",
+      "street": "",
+      "city": "",
+      "state": "",
+      "zip": "",
+      "country": "",
+      "type": "",
+      "source": "",
+      "notes": "",
+      "createdAt": "2026-07-15T20:34:23.825Z",
+      "updatedAt": "2026-07-15T20:34:23.825Z"
+    }
+  ],
+  "updated_at": "2026-07-15T20:34:24.810Z"
+}
