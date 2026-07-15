@@ -14,11 +14,12 @@ exports.handler = async function (event) {
   try { payload = JSON.parse(event.body); } catch { return respond(400, { error: "Invalid JSON" }); }
 
   const { type, data } = payload;
-  if (!type || !["customers", "products"].includes(type)) return respond(400, { error: "type must be customers or products" });
+  if (!type || !["customers", "products", "quotes"].includes(type)) return respond(400, { error: "type must be customers, products, or quotes" });
   if (!Array.isArray(data)) return respond(400, { error: "data must be an array" });
 
   try {
-    await writeGitHubFile(`${type}.json`, { [type]: data });
+    const fileKey = type === "quotes" ? "quotes" : type;
+    await writeGitHubFile(`${fileKey}.json`, { [type]: data });
     return respond(200, { success: true, count: data.length, type });
   } catch (err) {
     return respond(500, { error: err.message });
