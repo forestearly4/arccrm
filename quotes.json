@@ -1,0 +1,45 @@
+{
+  "quotes": [
+    {
+      "id": "q_1784147710777",
+      "number": "Q-0001",
+      "customerId": "c_1784147663825",
+      "customerName": "Jeffrey Burke",
+      "customerEmail": "jeff@golfsignco.com",
+      "status": "sent",
+      "lineItems": [
+        {
+          "id": "li_1784147638980",
+          "productId": "p_wilzcars",
+          "mainColor": "Coastal Gray",
+          "trimColor": "Black",
+          "logoType": "Color Vinyl",
+          "priceType": "woodgrain",
+          "qty": 2,
+          "unitPrice": 2562.65,
+          "disc": 0,
+          "productName": "Oversized Podium 36” wide x 21” x 48” with shelves",
+          "sku": "GP1500KA"
+        }
+      ],
+      "attachments": [
+        {
+          "name": "GP1500 SPECS.pdf",
+          "source": "upload"
+        }
+      ],
+      "notes": "",
+      "tax": 0,
+      "currency": "USD",
+      "expiry": "",
+      "subtotal": 5125.3,
+      "total": 5125.3,
+      "createdBy": "admin_0",
+      "createdByName": "Forest",
+      "createdAt": "2026-07-15T20:35:10.777Z",
+      "updatedAt": "2026-07-15T20:49:07.290Z",
+      "sigUrl": "https://arcrm.netlify.app/.netlify/functions/sign?q=q_1784147710777"
+    }
+  ],
+  "updated_at": "2026-07-15T20:49:08.444Z"
+}
