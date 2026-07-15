@@ -156,6 +156,7 @@ tbody tr:hover td{background:var(--bg3);}
 .badge-approval{background:var(--blue-bg);color:var(--blue);}
 .badge-approved{background:var(--green-bg);color:var(--green);}
 .badge-sent{background:var(--teal-bg);color:var(--teal);}
+.badge-signed{background:var(--purple-bg);color:var(--purple);}
 .empty-state{text-align:center;padding:60px 24px;}
 .empty-icon{font-size:36px;margin-bottom:12px;opacity:0.4;}
 .empty-title{font-family:var(--font-display);font-size:20px;color:var(--text2);margin-bottom:8px;}
@@ -679,6 +680,31 @@ async function loadAllData(){
     {url:'/katana-data.json',  keys:{inventory:'inventory',sales_orders:'sales_orders'}},
     {url:'/clickup-data.json', keys:{tasks:'tasks',lists:'lists'}},
   ];
+  // Also check quotes.json for signature updates
+  try{
+    const qr=await fetch('/quotes.json?t='+Date.now());
+    if(qr.ok){
+      const qd=await qr.json();
+      const githubQuotes=qd.quotes||[];
+      if(githubQuotes.length){
+        // Merge signed status from GitHub into localStorage quotes
+        const localQuotes=loadQuotes();
+        let changed=false;
+        githubQuotes.forEach(gq=>{
+          if(gq.status==='signed'){
+            const idx=localQuotes.findIndex(lq=>lq.id===gq.id);
+            if(idx>-1&&localQuotes[idx].status!=='signed'){
+              localQuotes[idx].status='signed';
+              localQuotes[idx].signature=gq.signature;
+              localQuotes[idx].updatedAt=gq.updatedAt;
+              changed=true;
+            }
+          }
+        });
+        if(changed){saveQuotes(localQuotes);toast('A quote has been signed by the customer!','success',6000);}
+      }
+    }
+  }catch(_){}
   await Promise.allSettled(files.map(async f=>{
     try{
       const r=await fetch(f.url+'?t='+Date.now());
@@ -806,13 +832,15 @@ function renderDashboard(){
   const openOrders=state.data.sales_orders.filter(o=>!['done','cancelled','completed','closed','shipped'].includes((o.status||'').toLowerCase()));
   const openTasks=state.data.tasks.filter(t=>!['closed','done','complete'].includes((t.status||'').toLowerCase()));
   const quotes=loadQuotes();
-  const pendingQuotes=quotes.filter(q=>['preapproval','approval'].includes(q.status));
+  const pendingQuotes=quotes.filter(q=>['preapproval','approval','sent'].includes(q.status));
+  const signedToday=quotes.filter(q=>q.status==='signed'&&q.signature?.signedAt&&(Date.now()-new Date(q.signature.signedAt).getTime())<86400000);
   rc(`
     <div class="stats-grid">
       <div class="stat-card"><div class="stat-label">My Customers</div><div class="stat-value stat-accent">${myCu.length}</div><div class="stat-sub">of ${state.data.customers.length} total</div></div>
       <div class="stat-card"><div class="stat-label">Open Orders</div><div class="stat-value">${openOrders.length}</div><div class="stat-sub">in Katana</div></div>
       <div class="stat-card"><div class="stat-label">Open Tasks</div><div class="stat-value">${openTasks.length}</div><div class="stat-sub">in ClickUp Sales</div></div>
-      <div class="stat-card"><div class="stat-label">Pending Quotes</div><div class="stat-value" style="color:${pendingQuotes.length?'var(--amber)':'var(--text)'}">${pendingQuotes.length}</div><div class="stat-sub">awaiting approval</div></div>
+      <div class="stat-card"><div class="stat-label">Pending Quotes</div><div class="stat-value" style="color:${pendingQuotes.length?'var(--amber)':'var(--text)'}">${pendingQuotes.length}</div><div class="stat-sub">awaiting action</div></div>
+      <div class="stat-card"><div class="stat-label">Signed Today</div><div class="stat-value" style="color:${signedToday.length?'var(--purple)':'var(--text)'}">${signedToday.length}</div><div class="stat-sub">customer confirmed</div></div>
     </div>
     ${!state.synced?`<div class="warn-box">Data loading… or click Sync All to refresh.</div>`:''}
     <div class="two-col">
@@ -1131,7 +1159,8 @@ function renderPipeline(){
     {label:'Pre-approval',items:quotes.filter(q=>q.status==='preapproval')},
     {label:'Approval',items:quotes.filter(q=>q.status==='approval')},
     {label:'Approved',items:quotes.filter(q=>q.status==='approved')},
-    {label:'Sent / Won',items:quotes.filter(q=>q.status==='sent')},
+    {label:'Awaiting Signature',items:quotes.filter(q=>q.status==='sent')},
+    {label:'Signed',items:quotes.filter(q=>q.status==='signed')},
   ];
   rc(`<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px">
     ${cols.map(col=>`<div style="background:var(--bg3);border-radius:var(--r2);padding:14px;border:0.5px solid var(--border)">
@@ -1535,15 +1564,15 @@ function saveQuotes(q){localStorage.setItem('arc_quotes',JSON.stringify(q));}
 function nextQuoteNumber(){const q=loadQuotes();const nums=q.map(x=>parseInt((x.number||'Q-000').replace(/\D/g,''))||0);return'Q-'+(String(Math.max(0,...nums)+1).padStart(4,'0'));}
 
 function quoteStageBadge(status){
-  const m={draft:'badge-draft',preapproval:'badge-preapproval',approval:'badge-approval',approved:'badge-approved',sent:'badge-sent'};
-  const labels={draft:'Draft',preapproval:'Pre-approval',approval:'Approval',approved:'Approved',sent:'Sent'};
+  const m={draft:'badge-draft',preapproval:'badge-preapproval',approval:'badge-approval',approved:'badge-approved',sent:'badge-sent',signed:'badge-signed'};
+  const labels={draft:'Draft',preapproval:'Pre-approval',approval:'Approval',approved:'Approved',sent:'Awaiting Signature',signed:'✓ Signed'};
   return`<span class="badge ${m[status]||'badge-gray'}">${labels[status]||status}</span>`;
 }
 
 function renderQuotes(){
   const quotes=loadQuotes();
   const isAdmin=state.currentUser?.role==='admin';
-  const visible=isAdmin?quotes:quotes.filter(q=>q.createdBy===state.currentUser?.id||['approval','approved','sent'].includes(q.status));
+  const visible=isAdmin?quotes:quotes.filter(q=>q.createdBy===state.currentUser?.id||['approval','approved','sent','signed'].includes(q.status));
   const filtered=state.search?visible.filter(q=>(q.number||'').toLowerCase().includes(state.search)||(q.customerName||'').toLowerCase().includes(state.search)):visible;
   rc(`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px"><div style="font-size:13px;color:var(--text3)">${filtered.length} quotes</div><button class="btn-primary" onclick="openNewQuote()">+ New Quote</button></div>
   ${!filtered.length?`<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-title">No quotes yet</div><div class="empty-sub">Click + New Quote to build your first one.</div></div>`:`
@@ -1637,10 +1666,19 @@ function setQuoteFooter(status){
   if(status==='draft'){btns+=`<button class="btn-primary" onclick="saveQuote('draft')">Save Draft</button><button class="btn-primary" style="background:var(--amber);color:#1a1000" onclick="saveQuote('preapproval')">Submit for Pre-approval →</button>`;}
   else if(status==='preapproval'&&isAdmin){btns+=`<button class="btn-primary" style="background:var(--blue);color:#fff" onclick="saveQuote('approval')">Pre-approve →</button><button class="btn-danger" onclick="saveQuote('draft')">↩ Draft</button>`;}
   else if(status==='approval'&&isAdmin){btns+=`<button class="btn-primary" style="background:var(--green);color:#001a00" onclick="saveQuote('approved')">✓ Approve</button><button class="btn-danger" onclick="saveQuote('preapproval')">↩ Pre-approval</button>`;}
-  else if(status==='approved'||status==='sent'){
-    btns+=`<button class="btn-primary" style="background:var(--teal);color:#001a15" onclick="sendQuote()">✉ Send to Customer</button>`;
+  else if(status==='approved'||status==='sent'||status==='signed'){
+    if(status!=='signed')btns+=`<button class="btn-primary" style="background:var(--teal);color:#001a15" onclick="sendQuote()">✉ Send to Customer</button>`;
     btns+=`<button class="btn-ghost" onclick="downloadQuotePDF()">⬇ PDF</button>`;
-    if(isAdmin)btns+=`<button class="btn-primary" style="background:var(--purple);color:#fff" onclick="pushQuoteToKatana()">→ Push to Katana</button>`;
+    if(status==='sent'){
+      const q=loadQuotes().find(x=>x.id===editingQuoteId);
+      if(q?.sigUrl)btns+=`<button class="btn-ghost" onclick="navigator.clipboard.writeText('${q.sigUrl}').then(()=>toast('Link copied','success'))" title="Copy signature link">🔗 Sig Link</button>`;
+    }
+    if(status==='signed'){
+      const q=loadQuotes().find(x=>x.id===editingQuoteId);
+      if(q?.signature)btns+=`<span style="font-size:12px;color:var(--purple);padding:0 8px">✓ Signed by ${q.signature.name} on ${new Date(q.signature.signedAt).toLocaleDateString()}</span>`;
+    }
+    if(isAdmin&&status!=='signed')btns+=`<button class="btn-primary" style="background:var(--purple);color:#fff" onclick="pushQuoteToKatana()">→ Push to Katana</button>`;
+    if(isAdmin&&status==='signed')btns+=`<button class="btn-primary" style="background:var(--purple);color:#fff" onclick="pushQuoteToKatana()">→ Push to Katana</button>`;
   }else{btns+=`<button class="btn-primary" onclick="saveQuote('draft')">Save Draft</button>`;}
   footer.innerHTML=btns;
 }
@@ -1749,17 +1787,65 @@ window.saveQuote=function(newStatus){
   const idx=quotes.findIndex(q=>q.id===qData.id);
   if(idx>-1)quotes[idx]=qData;else quotes.unshift(qData);
   saveQuotes(quotes);
-  const labels={draft:'Draft saved',preapproval:'Submitted for pre-approval',approval:'Sent for final approval',approved:'Quote approved!',sent:'Quote sent!'};
+  const labels={draft:'Draft saved',preapproval:'Submitted for pre-approval',approval:'Sent for final approval',approved:'Quote approved!',sent:'Sent — awaiting customer signature',signed:'Quote signed!'};
   toast(labels[newStatus]||'Quote saved','success');
   closeQuoteModal();renderQuotes();
 };
 
-window.sendQuote=function(){
+window.sendQuote=async function(){
   const quotes=loadQuotes();const idx=quotes.findIndex(q=>q.id===editingQuoteId);if(idx<0)return;
   const q=quotes[idx];
-  window.open(`mailto:${q.customerEmail}?subject=${encodeURIComponent('Quote '+q.number)}&body=${encodeURIComponent('Dear '+q.customerName+',\n\nPlease find Quote '+q.number+' for '+q.currency+' '+fmtMoney(q.total)+'.\n\n'+(q.notes||'')+'\n\nThank you.')}`);
-  quotes[idx].status='sent';quotes[idx].updatedAt=new Date().toISOString();
-  saveQuotes(quotes);toast('Quote marked as sent','success');closeQuoteModal();renderQuotes();
+
+  // Build signature URL — hosted on same Netlify domain
+  const sigUrl=`${window.location.origin}/.netlify/functions/sign?q=${q.id}`;
+
+  // Enrich line items with product names for the signature page
+  const enrichedItems=(q.lineItems||[]).map(li=>{
+    const p=state.data.products.find(x=>x.id===li.productId);
+    return{...li,productName:p?.name||'',sku:p?.sku||''};
+  });
+
+  const attachmentNames=(q.attachments||[]).map(a=>a.name);
+  const attachmentNote=attachmentNames.length
+    ?`\n\nFiles included with this quote:\n${attachmentNames.map(n=>'  • '+n).join('\n')}`:'';
+
+  const body=`Dear ${q.customerName},
+
+Thank you for considering Cask & Stream. Please find Quote ${q.number} for ${q.currency||'USD'} ${fmtMoney(q.total)} attached as a PDF.${attachmentNote}
+
+To confirm your order, please review the quote and sign electronically at the link below:
+
+  ${sigUrl}
+
+${q.notes?'\n'+q.notes+'\n':''}
+If you have any questions, please don't hesitate to reach out.
+
+Thank you,
+${state.currentUser?.firstName||''}
+Cask & Stream`;
+
+  // Mark as sent and save quotes to GitHub
+  const updatedQ={...q,status:'sent',lineItems:enrichedItems,sigUrl,updatedAt:new Date().toISOString()};
+  quotes[idx]=updatedQ;
+  saveQuotes(quotes);
+
+  // Save to GitHub so signature page can read it
+  try{
+    await saveToGitHub('quotes',quotes);
+  }catch(e){
+    toast('Warning: could not save to GitHub — sig page may not work: '+e.message,'error',5000);
+  }
+
+  // Open PDF in new tab
+  openQuotePDFInNewTab(updatedQ);
+
+  // Open email compose
+  setTimeout(()=>{
+    window.open(`mailto:${q.customerEmail}?subject=${encodeURIComponent('Quote '+q.number+' — Action Required: Please Sign')}&body=${encodeURIComponent(body)}`);
+  },400);
+
+  toast('PDF opened · email compose opened · signature link included','success',6000);
+  closeQuoteModal();renderQuotes();
 };
 
 window.pushQuoteToKatana=async function(){
@@ -1776,17 +1862,32 @@ window.pushQuoteToKatana=async function(){
   }catch(e){toast('Katana push failed: '+e.message,'error');}
 };
 
-window.downloadQuotePDF=function(){
-  const q=loadQuotes().find(x=>x.id===editingQuoteId);if(!q)return;
+function buildPDFHtml(q){
   const currency=q.currency||'USD';
-  const frame=document.getElementById('pdf-frame');frame.style.display='block';
-  frame.innerHTML=`<div style="max-width:720px;margin:0 auto;font-family:'Outfit',sans-serif">
-    <div class="pdf-no-print" style="display:flex;gap:12px;margin-bottom:24px">
-      <button onclick="window.print()" style="padding:8px 18px;background:#c8a96e;color:#1a1200;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer">🖨 Print / Save PDF</button>
-      <button onclick="document.getElementById('pdf-frame').style.display='none'" style="padding:8px 18px;background:#22272f;color:#e8eaed;border:none;border-radius:6px;font-size:13px;cursor:pointer">✕ Close</button>
-    </div>
+  const attachmentNames=(q.attachments||[]).map(a=>a.name);
+  return`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Quote ${q.number}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'Outfit',sans-serif;color:#111;background:#fff;padding:48px;}
+  .no-print{display:flex;gap:12px;margin-bottom:32px;align-items:center;}
+  .btn-print{padding:10px 20px;background:#c8a96e;color:#1a1200;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;}
+  .btn-close{padding:10px 20px;background:#f0f0f0;color:#333;border:none;border-radius:6px;font-size:13px;cursor:pointer;}
+  .instruction{background:#fff8e6;border:1px solid #f0d080;border-radius:6px;padding:10px 16px;font-size:13px;color:#7a5a00;flex:1;}
+  table{width:100%;border-collapse:collapse;}
+  th{padding:9px 10px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#666;background:#f5f5f5;}
+  td{padding:9px 10px;border-bottom:1px solid #eee;font-size:13px;}
+  @media print{.no-print{display:none!important;}body{padding:24px;}}</style>
+  </head><body>
+  <div class="no-print">
+    <button class="btn-print" onclick="window.print()">🖨 Print / Save as PDF</button>
+    <button class="btn-close" onclick="window.close()">✕ Close</button>
+    ${attachmentNames.length?`<div class="instruction">📎 <strong>Attach to email:</strong> Print/save this PDF, then attach it along with: ${attachmentNames.join(', ')}</div>`:`<div class="instruction">📎 Print or save this PDF, then attach it to the email compose window.</div>`}
+  </div>
+  <div style="max-width:720px;margin:0 auto">
     <div style="display:flex;justify-content:space-between;margin-bottom:32px">
-      <div><div style="font-size:28px;font-weight:700;color:#c8a96e">QUOTE</div><div style="font-size:22px;font-weight:600">${q.number}</div></div>
+      <div>
+        <div style="font-size:28px;font-weight:700;color:#c8a96e">QUOTE</div>
+        <div style="font-size:22px;font-weight:600">${q.number}</div>
+      </div>
       <div style="text-align:right;font-size:13px;color:#555">
         <div style="font-weight:600;font-size:16px;margin-bottom:4px">Cask &amp; Stream</div>
         <div>Date: ${new Date(q.createdAt).toLocaleDateString()}</div>
@@ -1799,21 +1900,42 @@ window.downloadQuotePDF=function(){
       <div style="font-size:15px;font-weight:600">${q.customerName}</div>
       <div style="color:#555">${q.customerEmail}</div>
     </div>
-    <table style="width:100%;border-collapse:collapse;margin-bottom:24px">
-      <thead><tr style="background:#f0f0f0">
-        ${['Product','SKU','Main Color','Trim Color','Logo','Qty','Unit Price','Disc','Total'].map(h=>`<th style="padding:8px 10px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#555">${h}</th>`).join('')}
-      </tr></thead>
-      <tbody>${(q.lineItems||[]).map(li=>{const p=state.data.products.find(x=>x.id===li.productId);const priceLabel=li.priceType==='woodgrain'?'(WG)':'';return`<tr style="border-bottom:1px solid #eee"><td style="padding:8px 10px">${p?.name||'—'}</td><td style="padding:8px 10px;color:#555;font-size:11px;font-family:monospace">${p?.sku||'—'}</td><td style="padding:8px 10px;font-size:11px">${li.mainColor||'—'}</td><td style="padding:8px 10px;font-size:11px">${li.trimColor||'—'}</td><td style="padding:8px 10px;font-size:11px">${li.logoType||'—'}</td><td style="padding:8px 10px;text-align:center">${li.qty}</td><td style="padding:8px 10px;text-align:right">${currency} ${fmtMoney(li.unitPrice)} ${priceLabel}</td><td style="padding:8px 10px;text-align:center">${li.disc||0}%</td><td style="padding:8px 10px;text-align:right;font-weight:600">${currency} ${fmtMoney(lineTotal(li))}</td></tr>`;}).join('')}</tbody>
+    <table style="margin-bottom:24px">
+      <thead><tr>${['Product','SKU','Main Color','Trim Color','Logo','Qty','Unit Price','Disc','Total'].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+      <tbody>${(q.lineItems||[]).map(li=>{
+        const prods=JSON.parse(localStorage.getItem('arc_products_cache')||'[]');
+        const p=prods.find?.(x=>x.id===li.productId)||{name:li.productId,sku:''};
+        const pwg=li.priceType==='woodgrain'?' (WG)':'';
+        return`<tr><td>${p.name||'—'}</td><td style="font-family:monospace;font-size:11px">${p.sku||'—'}</td><td style="font-size:11px">${li.mainColor||'—'}</td><td style="font-size:11px">${li.trimColor||'—'}</td><td style="font-size:11px">${li.logoType||'—'}</td><td style="text-align:center">${li.qty}</td><td style="text-align:right">${currency} ${Number(li.unitPrice||0).toFixed(2)}${pwg}</td><td style="text-align:center">${li.disc||0}%</td><td style="text-align:right;font-weight:600">${currency} ${(li.qty*(li.unitPrice||0)*(1-(li.disc||0)/100)).toFixed(2)}</td></tr>`;
+      }).join('')}</tbody>
     </table>
     <div style="display:flex;justify-content:flex-end;margin-bottom:24px">
       <div style="min-width:240px">
-        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #eee"><span style="color:#555">Subtotal</span><span>${currency} ${fmtMoney(q.subtotal)}</span></div>
-        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #eee"><span style="color:#555">Tax (${q.tax||0}%)</span><span>${currency} ${fmtMoney((q.subtotal||0)*(q.tax||0)/100)}</span></div>
-        <div style="display:flex;justify-content:space-between;padding:8px 0;font-weight:700;font-size:16px"><span>Total</span><span style="color:#c8a96e">${currency} ${fmtMoney(q.total)}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #eee"><span style="color:#555">Subtotal</span><span>${currency} ${Number(q.subtotal||0).toFixed(2)}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #eee"><span style="color:#555">Tax (${q.tax||0}%)</span><span>${currency} ${((q.subtotal||0)*(q.tax||0)/100).toFixed(2)}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:8px 0;font-weight:700;font-size:16px"><span>Total</span><span style="color:#c8a96e">${currency} ${Number(q.total||0).toFixed(2)}</span></div>
       </div>
     </div>
     ${q.notes?`<div style="padding:16px;background:#f8f8f8;border-radius:8px;font-size:13px;color:#555;line-height:1.6"><div style="font-weight:600;margin-bottom:6px">Notes &amp; Terms</div>${q.notes}</div>`:''}
-  </div>`;
+    ${attachmentNames.length?`<div style="margin-top:16px;font-size:12px;color:#888">Attachments: ${attachmentNames.join(', ')}</div>`:''}
+  </div></body></html>`;
+}
+
+function openQuotePDFInNewTab(q){
+  // Cache product data so the new tab can access it for SKU/name lookup
+  localStorage.setItem('arc_products_cache',JSON.stringify(state.data.products||[]));
+  const html=buildPDFHtml(q);
+  const blob=new Blob([html],{type:'text/html'});
+  const url=URL.createObjectURL(blob);
+  const tab=window.open(url,'_blank');
+  // Revoke URL after tab loads
+  if(tab)tab.addEventListener('load',()=>URL.revokeObjectURL(url),{once:true});
+}
+
+window.downloadQuotePDF=function(){
+  const q=loadQuotes().find(x=>x.id===editingQuoteId);if(!q)return;
+  openQuotePDFInNewTab(q);
+  toast('PDF opened in new tab','info');
 };
 
 window.previewPDF=function(qid){const q=loadQuotes().find(x=>x.id===qid);if(!q)return;editingQuoteId=qid;lineItems=q.lineItems||[];downloadQuotePDF();};
