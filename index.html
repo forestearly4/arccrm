@@ -1796,7 +1796,7 @@ window.sendQuote=async function(){
   const quotes=loadQuotes();const idx=quotes.findIndex(q=>q.id===editingQuoteId);if(idx<0)return;
   const q=quotes[idx];
 
-  // Build signature URL — hosted on same Netlify domain
+  // Build signature URL
   const sigUrl=`${window.location.origin}/.netlify/functions/sign?q=${q.id}`;
 
   // Enrich line items with product names for the signature page
@@ -1809,42 +1809,31 @@ window.sendQuote=async function(){
   const attachmentNote=attachmentNames.length
     ?`\n\nFiles included with this quote:\n${attachmentNames.map(n=>'  • '+n).join('\n')}`:'';
 
-  const body=`Dear ${q.customerName},
+  const body=`Dear ${q.customerName},\n\nThank you for considering Cask & Stream. Please find Quote ${q.number} for ${q.currency||'USD'} ${fmtMoney(q.total)} attached as a PDF.${attachmentNote}\n\nTo confirm your order, please review the quote and sign electronically at the link below:\n\n  ${sigUrl}\n\n${q.notes?q.notes+'\n\n':''}If you have any questions, please don't hesitate to reach out.\n\nThank you,\n${state.currentUser?.firstName||''}\nCask & Stream`;
 
-Thank you for considering Cask & Stream. Please find Quote ${q.number} for ${q.currency||'USD'} ${fmtMoney(q.total)} attached as a PDF.${attachmentNote}
-
-To confirm your order, please review the quote and sign electronically at the link below:
-
-  ${sigUrl}
-
-${q.notes?'\n'+q.notes+'\n':''}
-If you have any questions, please don't hesitate to reach out.
-
-Thank you,
-${state.currentUser?.firstName||''}
-Cask & Stream`;
-
-  // Mark as sent and save quotes to GitHub
   const updatedQ={...q,status:'sent',lineItems:enrichedItems,sigUrl,updatedAt:new Date().toISOString()};
+
+  // ── CRITICAL: open both windows synchronously before any await ──
+  // Browsers block window.open after async operations
+  const pdfBlob=buildPDFHtml(updatedQ);
+  const blob=new Blob([pdfBlob],{type:'text/html'});
+  const pdfUrl=URL.createObjectURL(blob);
+  window.open(pdfUrl,'_blank');
+  window.open(`mailto:${q.customerEmail}?subject=${encodeURIComponent('Quote '+q.number+' — Action Required: Please Sign')}&body=${encodeURIComponent(body)}`);
+  setTimeout(()=>URL.revokeObjectURL(pdfUrl),5000);
+
+  // Now do async work
   quotes[idx]=updatedQ;
   saveQuotes(quotes);
 
-  // Save to GitHub so signature page can read it
   try{
+    localStorage.setItem('arc_products_cache',JSON.stringify(state.data.products||[]));
     await saveToGitHub('quotes',quotes);
+    toast('PDF opened · email compose opened · signature link included','success',6000);
   }catch(e){
     toast('Warning: could not save to GitHub — sig page may not work: '+e.message,'error',5000);
   }
 
-  // Open PDF in new tab
-  openQuotePDFInNewTab(updatedQ);
-
-  // Open email compose
-  setTimeout(()=>{
-    window.open(`mailto:${q.customerEmail}?subject=${encodeURIComponent('Quote '+q.number+' — Action Required: Please Sign')}&body=${encodeURIComponent(body)}`);
-  },400);
-
-  toast('PDF opened · email compose opened · signature link included','success',6000);
   closeQuoteModal();renderQuotes();
 };
 
@@ -1852,14 +1841,36 @@ window.pushQuoteToKatana=async function(){
   const q=loadQuotes().find(x=>x.id===editingQuoteId);if(!q)return;
   toast('Pushing to Katana…','info',6000);
   try{
-    const payload={quote_number:q.number,customer_name:q.customerName,customer_email:q.customerEmail,notes:q.notes,line_items:(q.lineItems||[]).filter(li=>li.productId).map(li=>{const p=state.data.products.find(x=>x.id===li.productId);return{sku:p?.sku,product_name:p?.name,qty:li.qty,unit_price:li.unitPrice,discount:li.disc||0};})};
+    const payload={
+      quote_number:q.number,
+      customer_name:q.customerName,
+      customer_email:q.customerEmail,
+      notes:q.notes,
+      total:q.total,
+      currency:q.currency||'USD',
+      line_items:(q.lineItems||[]).filter(li=>li.productId).map(li=>{
+        const p=state.data.products.find(x=>x.id===li.productId);
+        return{
+          sku:p?.sku||'',
+          product_name:p?.name||li.productName||'',
+          qty:li.qty,
+          unit_price:li.unitPrice,
+          discount:li.disc||0,
+          mainColor:li.mainColor||'',
+          trimColor:li.trimColor||'',
+          logoType:li.logoType||'',
+          priceType:li.priceType||'standard',
+        };
+      }),
+    };
     const r=await fetch('/.netlify/functions/push-quote',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
-    const d=await r.json();if(!r.ok)throw new Error(d.error||'Failed');
+    const d=await r.json();
+    if(!r.ok)throw new Error(d.error||'Failed');
     const quotes=loadQuotes();const idx=quotes.findIndex(x=>x.id===q.id);
     if(idx>-1){quotes[idx].katanaOrderId=d.order?.id;quotes[idx].katanaOrderNumber=d.order?.order_number;saveQuotes(quotes);}
     toast(`Pushed to Katana as ${d.order?.order_number||'sales order'} ✓`,'success');
     closeQuoteModal();renderQuotes();
-  }catch(e){toast('Katana push failed: '+e.message,'error');}
+  }catch(e){toast('Katana push failed: '+e.message,'error',8000);}
 };
 
 function buildPDFHtml(q){
