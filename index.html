@@ -277,7 +277,7 @@ tbody tr:hover td{background:var(--bg3);}
       <div class="nav-section">Katana</div>
       <div class="nav-item" data-view="inventory">
         <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="8" width="3" height="6" rx="1"/><rect x="6" y="5" width="3" height="9" rx="1"/><rect x="10" y="2" width="3" height="12" rx="1"/></svg>
-        Inventory
+        Materials
       </div>
       <div class="nav-item" data-view="sales_orders">
         <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 3h12l-1 9H3L2 3z"/><path d="M5 3V2a1 1 0 011-1h4a1 1 0 011 1v1"/></svg>
@@ -447,7 +447,31 @@ tbody tr:hover td{background:var(--bg3);}
       <div class="form-section">
         <div class="form-section-title">Quote Details</div>
         <div class="form-grid">
-          <div class="form-group"><label class="form-label">Customer <span class="req">*</span></label><select class="form-select" id="q-customer"><option value="">— Select —</option></select><div class="field-error" id="err-q-customer"></div></div>
+          <div class="form-group">
+            <label class="form-label">Customer <span class="req">*</span></label>
+            <div style="display:flex;gap:6px;align-items:flex-start">
+              <div style="flex:1">
+                <select class="form-select" id="q-customer"><option value="">— Select —</option></select>
+                <div class="field-error" id="err-q-customer"></div>
+              </div>
+              <button type="button" onclick="openQuickAddCustomer()" style="padding:7px 10px;background:var(--accent-dim);color:var(--accent);border:0.5px solid var(--accent);border-radius:var(--r);cursor:pointer;font-size:13px;white-space:nowrap;flex-shrink:0;font-family:var(--font-body)" title="Add new customer">+ New</button>
+            </div>
+            <!-- Quick-add customer inline form -->
+            <div id="quick-add-customer" style="display:none;margin-top:10px;background:var(--bg3);border:0.5px solid var(--border2);border-radius:var(--r);padding:14px">
+              <div style="font-size:11px;color:var(--text3);font-family:var(--font-mono);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Quick Add Customer</div>
+              <div class="form-grid">
+                <div class="form-group"><label class="form-label">First Name <span class="req">*</span></label><input class="form-input" id="qc-first" type="text" placeholder="First"></div>
+                <div class="form-group"><label class="form-label">Last Name <span class="req">*</span></label><input class="form-input" id="qc-last" type="text" placeholder="Last"></div>
+                <div class="form-group"><label class="form-label">Email <span class="req">*</span></label><input class="form-input" id="qc-email" type="email" placeholder="email@example.com"></div>
+                <div class="form-group"><label class="form-label">Company</label><input class="form-input" id="qc-company" type="text" placeholder="Club / Company name"></div>
+              </div>
+              <div id="qc-error" style="margin-top:6px"></div>
+              <div style="display:flex;gap:8px;margin-top:10px">
+                <button class="btn-ghost" style="padding:6px 14px;font-size:12px" onclick="document.getElementById('quick-add-customer').style.display='none'">Cancel</button>
+                <button class="btn-primary" style="padding:6px 14px;font-size:12px" onclick="saveQuickCustomer()">Save & Select</button>
+              </div>
+            </div>
+          </div>
           <div class="form-group"><label class="form-label">Quote Number</label><input class="form-input" id="q-number" type="text"></div>
           <div class="form-group"><label class="form-label">Valid Until</label><input class="form-input" id="q-expiry" type="date"></div>
           <div class="form-group"><label class="form-label">Currency</label><select class="form-select" id="q-currency"><option value="USD">USD</option><option value="EUR">EUR</option><option value="GBP">GBP</option><option value="CAD">CAD</option></select></div>
@@ -747,7 +771,7 @@ function updateDots(){
 // ══════════════════════════════════════════════════
 // ROUTING
 // ══════════════════════════════════════════════════
-const TITLES={dashboard:'Dashboard',customers:'Customers',products:'Products / SKUs',quotes:'Quotes',pipeline:'Sales Pipeline',inventory:'Inventory Levels',sales_orders:'Sales Orders',tasks:'Sales Tasks',dropbox:'Dropbox Files',users:'User Management',settings_api:'API Settings'};
+const TITLES={dashboard:'Dashboard',customers:'Customers',products:'Products / SKUs',quotes:'Quotes',pipeline:'Sales Pipeline',inventory:'Material Inventory',sales_orders:'Sales Orders',tasks:'Sales Tasks',dropbox:'Dropbox Files',users:'User Management',settings_api:'API Settings'};
 const TOPBAR_ACTIONS={
   customers:{label:'+ New Customer',fn:'openCustomerForm'},
   products:{label:'+ New Product',fn:'openProductForm'},
@@ -982,10 +1006,13 @@ function renderInventory(){
   const lastSync=state.lastKatanaSync?new Date(state.lastKatanaSync).toLocaleString():'Never';
   rc(`
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-      <div style="font-size:12px;color:var(--text3)">Last Katana sync: ${lastSync}</div>
+      <div>
+        <div style="font-size:12px;color:var(--text3)">Last Katana sync: ${lastSync}</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:2px">Raw materials inventory — pulled from Katana</div>
+      </div>
       <button class="btn-primary" onclick="syncKatana().then(()=>loadAllData()).then(()=>render())">↻ Sync Katana</button>
     </div>
-    <div class="card"><div class="table-wrap"><table><thead><tr><th>SKU</th><th>Name</th><th>In Stock</th><th>Committed</th><th>Expected</th><th>Unit</th></tr></thead><tbody>
+    <div class="card"><div class="table-wrap"><table><thead><tr><th>SKU / Code</th><th>Material</th><th>In Stock</th><th>Committed</th><th>Expected</th><th>Unit</th></tr></thead><tbody>
       ${items.length?items.map(i=>`<tr>
         <td style="font-family:var(--font-mono);color:var(--accent)">${i.sku||'—'}</td>
         <td style="font-weight:500">${i.name||'—'}</td>
@@ -993,7 +1020,7 @@ function renderInventory(){
         <td style="color:var(--text3);font-family:var(--font-mono)">${i.committed??'—'}</td>
         <td style="color:var(--text3);font-family:var(--font-mono)">${i.expected??'—'}</td>
         <td style="color:var(--text3)">${i.unit||'—'}</td>
-      </tr>`).join(''):`<tr><td colspan="6" style="color:var(--text3);text-align:center;padding:40px">No inventory data — click Sync Katana.</td></tr>`}
+      </tr>`).join(''):`<tr><td colspan="6" style="color:var(--text3);text-align:center;padding:40px">No material inventory data — click Sync Katana.</td></tr>`}
     </tbody></table></div></div>`);
 }
 
@@ -1657,6 +1684,41 @@ window.openEditQuote=function(q){
 
 function closeQuoteModal(){document.getElementById('quote-modal').style.display='none';}
 window.closeQuoteModal=closeQuoteModal;
+
+// ── QUICK ADD CUSTOMER FROM QUOTE SCREEN ──
+window.openQuickAddCustomer=function(){
+  ['qc-first','qc-last','qc-email','qc-company'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('qc-error').innerHTML='';
+  document.getElementById('quick-add-customer').style.display='block';
+  document.getElementById('qc-first').focus();
+};
+
+window.saveQuickCustomer=async function(){
+  const first=document.getElementById('qc-first').value.trim();
+  const last=document.getElementById('qc-last').value.trim();
+  const email=document.getElementById('qc-email').value.trim();
+  const company=document.getElementById('qc-company').value.trim();
+  const errEl=document.getElementById('qc-error');
+  if(!first){errEl.innerHTML='<div class="error-box" style="padding:6px 10px;font-size:12px">First name required</div>';return;}
+  if(!last){errEl.innerHTML='<div class="error-box" style="padding:6px 10px;font-size:12px">Last name required</div>';return;}
+  if(!email||!/^[^@]+@[^@]+\.[^@]+$/.test(email)){errEl.innerHTML='<div class="error-box" style="padding:6px 10px;font-size:12px">Valid email required</div>';return;}
+  const id='c_'+Date.now();
+  const customer={id,name:`${first} ${last}`,first,last,email,company,phone:'',street:'',city:'',state:'',zip:'',country:'',type:'',source:'',notes:'',createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
+  state.data.customers.unshift(customer);
+  state.ownership[id]=state.currentUser.id;
+  saveOwnership();
+  try{
+    await saveToGitHub('customers',state.data.customers);
+    // Refresh customer dropdown and select new customer
+    const sel=document.getElementById('q-customer');
+    const opt=document.createElement('option');
+    opt.value=id;opt.textContent=`${first} ${last}${company?' ('+company+')':''}`;
+    sel.insertBefore(opt,sel.options[1]);
+    sel.value=id;
+    document.getElementById('quick-add-customer').style.display='none';
+    toast(`${first} ${last} added`,'success');
+  }catch(e){errEl.innerHTML=`<div class="error-box" style="padding:6px 10px;font-size:12px">${e.message}</div>`;}
+};
 
 window.saveQuote=function(newStatus){
   const custId=document.getElementById('q-customer').value;
