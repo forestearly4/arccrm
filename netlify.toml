@@ -1,7 +1,4 @@
 # arcCRM v3
-# Katana: inventory + SO status only
-# ClickUp: bidirectional sales space sync
-# Customers + Products: managed in GitHub JSON files
 
 [build]
   publish = "."
@@ -9,15 +6,23 @@
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"
+  included_files = ["netlify/functions/package.json"]
 
-# Hourly auto-sync
+# Hourly Katana sync
 [functions.sync]
   schedule = "@hourly"
 
-# Environment variables (set in Netlify dashboard):
-# KATANA_API_KEY     — Katana API key (sk-...)
-# CLICKUP_API_KEY    — ClickUp API token (pk_...)
-# CLICKUP_SPACE_ID   — ClickUp Sales space ID
-# GITHUB_TOKEN       — GitHub personal access token (repo scope)
-# GITHUB_REPO        — forestearly4/arccrm
-# GITHUB_BRANCH      — main
+# Daily Dropbox Excel sync
+[functions.sync-dropbox-excel]
+  schedule = "@daily"
+
+# Environment variables (Netlify dashboard → Site config → Env vars):
+# KATANA_API_KEY          — Katana API key (sk-...)
+# CLICKUP_API_KEY         — ClickUp API token (pk_...)
+# CLICKUP_SPACE_ID        — ClickUp Sales space ID
+# GITHUB_TOKEN            — GitHub personal access token (repo scope)
+# GITHUB_REPO             — forestearly4/arccrm
+# GITHUB_BRANCH           — main
+# DROPBOX_TOKEN           — Dropbox long-lived access token (stored server-side)
+# DROPBOX_PRICING_PATH    — (optional) default: /arccrm/pricing.xlsx
+# DROPBOX_CUSTOMERS_PATH  — (optional) default: /arccrm/customers.xlsx
