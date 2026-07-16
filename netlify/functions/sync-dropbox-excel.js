@@ -4,6 +4,10 @@
  * Reads /arccrm/pricing.xlsx and /arccrm/customers.xlsx from Dropbox
  * Parses them and writes products.json / customers.json to GitHub
  *
+ * Supports both:
+ *   - Short-lived access tokens (DROPBOX_TOKEN starting with sl.)
+ *   - Long-lived refresh tokens (DROPBOX_REFRESH_TOKEN) via DROPBOX_APP_KEY + DROPBOX_APP_SECRET
+ *
  * Dropbox paths (put your Excel files here):
  *   /arccrm/pricing.xlsx   → products
  *   /arccrm/customers.xlsx → customers
@@ -16,6 +20,44 @@ const CORS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods
 
 function respond(status, body) {
   return { statusCode: status, headers: { ...CORS, "Content-Type": "application/json" }, body: JSON.stringify(body) };
+}
+
+// ── Exchange refresh token for a fresh access token ───────────────
+async function getAccessToken() {
+  // Option 1: direct access token (short-lived, set as DROPBOX_TOKEN)
+  const directToken = process.env.DROPBOX_TOKEN;
+  const refreshToken = process.env.DROPBOX_REFRESH_TOKEN;
+  const appKey = process.env.DROPBOX_APP_KEY;
+  const appSecret = process.env.DROPBOX_APP_SECRET;
+
+  if (refreshToken && appKey && appSecret) {
+    // Exchange refresh token for a fresh access token
+    const r = await fetch("https://api.dropboxapi.com/oauth2/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        grant_type: "refresh_token",
+        refresh_token: refreshToken,
+        client_id: appKey,
+        client_secret: appSecret,
+      }),
+    });
+    if (!r.ok) {
+      const err = await r.text();
+      throw new Error(`Token refresh failed ${r.status}: ${err}`);
+    }
+    const data = await r.json();
+    if (!data.access_token) throw new Error("No access_token in refresh response: " + JSON.stringify(data));
+    console.log("Got fresh Dropbox access token via refresh token");
+    return data.access_token;
+  }
+
+  if (directToken) {
+    console.log("Using direct DROPBOX_TOKEN");
+    return directToken;
+  }
+
+  throw new Error("No Dropbox credentials — set DROPBOX_REFRESH_TOKEN + DROPBOX_APP_KEY + DROPBOX_APP_SECRET, or DROPBOX_TOKEN");
 }
 
 // ── Download file from Dropbox as base64 ──────────────────────────
@@ -140,8 +182,13 @@ function parseStandardLayout(rawRows, type) {
 exports.handler = async function (event) {
   if (event.httpMethod === "OPTIONS") return { statusCode: 204, headers: CORS, body: "" };
 
-  const dbxToken = process.env.DROPBOX_TOKEN;
-  if (!dbxToken) return respond(500, { error: "Missing DROPBOX_TOKEN env var" });
+  // Get a valid Dropbox access token (handles both refresh and direct)
+  let dbxToken;
+  try {
+    dbxToken = await getAccessToken();
+  } catch (e) {
+    return respond(500, { error: e.message });
+  }
 
   // Dynamically load XLSX parser
   let XLSX;
