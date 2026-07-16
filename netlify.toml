@@ -23,6 +23,9 @@
 # GITHUB_TOKEN            — GitHub personal access token (repo scope)
 # GITHUB_REPO             — forestearly4/arccrm
 # GITHUB_BRANCH           — main
-# DROPBOX_TOKEN           — Dropbox long-lived access token (stored server-side)
-# DROPBOX_PRICING_PATH    — (optional) default: /arccrm/pricing.xlsx
-# DROPBOX_CUSTOMERS_PATH  — (optional) default: /arccrm/customers.xlsx
+# DROPBOX_REFRESH_TOKEN  — long-lived refresh token (preferred, never expires)
+# DROPBOX_APP_KEY        — your Dropbox app key (flybmmazoumvluk)
+# DROPBOX_APP_SECRET     — your Dropbox app secret
+# DROPBOX_TOKEN          — (alternative) short-lived access token
+# DROPBOX_PRICING_PATH   — (optional) default: /arccrm/pricing.xlsx
+# DROPBOX_CUSTOMERS_PATH — (optional) default: /arccrm/customers.xlsx
