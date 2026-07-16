@@ -28,24 +28,46 @@ exports.handler = async function (event) {
   console.log("Katana sync started", new Date().toISOString());
 
   try {
-    // Fetch material inventory levels and sales orders in parallel
-    // Materials = raw inputs (HDPE, aluminum, etc.) — not finished goods
-    const [matRes, soRes] = await Promise.all([
+    // Fetch materials and inventory in parallel
+    const [matRes, soRes, invRes] = await Promise.all([
       katanaGet("/materials?limit=500", key),
       katanaGet("/sales_orders?limit=500", key),
+      katanaGet("/inventory?limit=2000", key),
     ]);
 
-    // Extract material inventory levels
+    // Build a variant_id → inventory map
+    const rawInventory = invRes.data || invRes || [];
+    const invMap = {};
+    for (const inv of rawInventory) {
+      if (!invMap[inv.variant_id]) invMap[inv.variant_id] = inv;
+    }
+
+    // Extract materials — name + calculated stock only
     const rawMaterials = matRes.data || matRes || [];
-    const inventory = rawMaterials.map(m => ({
-      id:        m.id,
-      sku:       m.sku || m.variant_code || "",
-      name:      m.name,
-      in_stock:  m.in_stock ?? m.stock_quantity ?? m.quantity ?? 0,
-      committed: m.committed_stock ?? m.committed ?? 0,
-      expected:  m.expected_stock ?? m.expected ?? 0,
-      unit:      m.unit_of_measure || m.unit || "",
-    }));
+    const inventory = rawMaterials
+      .filter(m => !m.archived_at && !m.deleted_at)
+      .map(m => {
+        // Get first variant's inventory record
+        const variantId = m.variants?.[0]?.id;
+        const inv = variantId ? invMap[variantId] : null;
+        const inStock    = parseFloat(inv?.quantity_in_stock    || 0);
+        const committed  = parseFloat(inv?.quantity_committed   || 0);
+        const expected   = parseFloat(inv?.quantity_expected    || 0);
+        // Calculated stock = in stock - committed + expected (matches Katana UI)
+        const calculated = Math.round((inStock - committed + expected) * 1000) / 1000;
+        return {
+          id:         m.id,
+          name:       m.name,
+          category:   m.category_name || "",
+          uom:        m.uom || "",
+          in_stock:   Math.round(inStock * 1000) / 1000,
+          calculated: calculated,
+        };
+      })
+      // Only include materials with a name containing "plastic" or any stock activity
+      // (show all — user can search/filter in the UI)
+      .filter(m => m.name)
+      .sort((a, b) => a.name.localeCompare(b.name));
 
     // Extract sales order statuses
     const rawOrders = soRes.data || soRes || [];
