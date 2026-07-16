@@ -603,6 +603,48 @@ tbody tr:hover td{background:var(--bg3);}
 <!-- PDF frame -->
 <div id="pdf-frame" style="display:none;position:fixed;inset:0;background:white;z-index:9999;overflow:auto;padding:48px;font-family:'Outfit',sans-serif;color:#111"></div>
 
+<!-- ══ EMAIL COMPOSER MODAL ══ -->
+<div class="modal-overlay" id="email-composer-modal" style="display:none;">
+  <div class="modal" style="max-width:680px;">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">Send Quote to Customer</div>
+        <div class="modal-sub">Review, edit, then copy and paste into Outlook</div>
+      </div>
+      <button class="modal-close" onclick="document.getElementById('email-composer-modal').style.display='none'">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-section">
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">To</label>
+            <input class="form-input" id="ec-to" type="email">
+          </div>
+          <div class="form-group">
+            <label class="form-label">From (your name)</label>
+            <input class="form-input" id="ec-from" type="text">
+          </div>
+          <div class="form-group span2">
+            <label class="form-label">Subject</label>
+            <input class="form-input" id="ec-subject" type="text">
+          </div>
+          <div class="form-group span2">
+            <label class="form-label">Body</label>
+            <textarea class="form-textarea" id="ec-body" style="min-height:260px;font-family:var(--font-body);line-height:1.7;font-size:13px"></textarea>
+          </div>
+        </div>
+      </div>
+      <div style="background:var(--amber-bg);border:0.5px solid rgba(251,191,36,0.2);border-radius:var(--r);padding:10px 14px;font-size:12px;color:var(--amber);line-height:1.6" id="ec-attachment-note"></div>
+    </div>
+    <div class="modal-footer" style="flex-wrap:wrap;gap:8px">
+      <button class="btn-ghost" onclick="document.getElementById('email-composer-modal').style.display='none'">Cancel</button>
+      <button class="btn-ghost" onclick="copyEmailToClipboard()" id="ec-copy-btn">📋 Copy All to Clipboard</button>
+      <button class="btn-ghost" onclick="openOutlookWeb()" style="color:var(--blue);border-color:rgba(96,165,250,0.3)">🌐 Open Outlook Web</button>
+      <button class="btn-primary" onclick="confirmEmailSent()" style="margin-left:auto">✓ Mark as Sent</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script>
@@ -1069,25 +1111,51 @@ window.confirmClearProducts=function(){
 // ══════════════════════════════════════════════════
 function renderInventory(){
   let items=state.data.inventory;
-  if(state.search)items=items.filter(i=>(i.name||'').toLowerCase().includes(state.search)||(i.sku||'').toLowerCase().includes(state.search));
+  if(state.search)items=items.filter(i=>(i.name||'').toLowerCase().includes(state.search));
   const lastSync=state.lastKatanaSync?new Date(state.lastKatanaSync).toLocaleString():'Never';
+  // Default filter to plastic materials
+  const showAll=state.inventoryShowAll||false;
+  const plasticItems=items.filter(i=>(i.name||'').toLowerCase().includes('plastic'));
+  const displayItems=showAll?items:plasticItems;
   rc(`
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
       <div>
         <div style="font-size:12px;color:var(--text3)">Last Katana sync: ${lastSync}</div>
-        <div style="font-size:11px;color:var(--text3);margin-top:2px">Raw materials inventory — pulled from Katana</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:2px">Raw materials · calculated stock = in stock − committed + expected</div>
       </div>
-      <button class="btn-primary" onclick="syncKatana().then(()=>loadAllData()).then(()=>render())">↻ Sync Katana</button>
+      <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer">
+          <input type="checkbox" ${showAll?'checked':''} onchange="state.inventoryShowAll=this.checked;render()" style="accent-color:var(--accent)"> Show all materials
+        </label>
+        <button class="btn-primary" onclick="syncKatana().then(()=>loadAllData()).then(()=>render())">↻ Sync Now</button>
+      </div>
     </div>
-    <div class="card"><div class="table-wrap"><table><thead><tr><th>SKU / Code</th><th>Material</th><th>In Stock</th><th>Committed</th><th>Expected</th><th>Unit</th></tr></thead><tbody>
-      ${items.length?items.map(i=>`<tr>
-        <td style="font-family:var(--font-mono);color:var(--accent)">${i.sku||'—'}</td>
-        <td style="font-weight:500">${i.name||'—'}</td>
-        <td><span class="badge ${i.in_stock>0?'badge-green':i.in_stock===0?'badge-red':'badge-gray'}">${i.in_stock??'—'}</span></td>
-        <td style="color:var(--text3);font-family:var(--font-mono)">${i.committed??'—'}</td>
-        <td style="color:var(--text3);font-family:var(--font-mono)">${i.expected??'—'}</td>
-        <td style="color:var(--text3)">${i.unit||'—'}</td>
-      </tr>`).join(''):`<tr><td colspan="6" style="color:var(--text3);text-align:center;padding:40px">No material inventory data — click Sync Katana.</td></tr>`}
+    <div style="font-size:12px;color:var(--text3);margin-bottom:12px">
+      Showing <strong style="color:var(--text)">${displayItems.length}</strong> ${showAll?'total':'plastic'} material${displayItems.length!==1?'s':''}
+      ${!showAll&&plasticItems.length<items.length?` (${items.length} total — check "Show all materials" to see everything)`:''}
+    </div>
+    <div class="card"><div class="table-wrap"><table><thead><tr>
+      <th>Material Name</th>
+      <th style="text-align:right">In Stock</th>
+      <th style="text-align:right">Committed</th>
+      <th style="text-align:right">Expected</th>
+      <th style="text-align:right">Calculated Stock</th>
+      <th>Unit</th>
+      <th>Category</th>
+    </tr></thead><tbody>
+      ${displayItems.length?displayItems.map(i=>{
+        const calc=i.calculated??0;
+        const calcBadgeClass=calc>0?'badge-green':calc<0?'badge-red':'badge-gray';
+        return`<tr>
+          <td style="font-weight:500;max-width:340px">${i.name||'—'}</td>
+          <td style="font-family:var(--font-mono);text-align:right;color:var(--text2)">${i.in_stock??'—'}</td>
+          <td style="font-family:var(--font-mono);text-align:right;color:var(--text3)">${i.committed??'—'}</td>
+          <td style="font-family:var(--font-mono);text-align:right;color:var(--text3)">${i.expected??'—'}</td>
+          <td style="text-align:right"><span class="badge ${calcBadgeClass}">${calc}</span></td>
+          <td style="color:var(--text3);font-size:12px">${i.uom||'—'}</td>
+          <td style="color:var(--text3);font-size:12px">${i.category||'—'}</td>
+        </tr>`;
+      }).join(''):`<tr><td colspan="7" style="color:var(--text3);text-align:center;padding:40px">No materials — click Sync Now.</td></tr>`}
     </tbody></table></div></div>`);
 }
 
@@ -1864,87 +1932,97 @@ window.saveQuote=function(newStatus){
   closeQuoteModal();renderQuotes();
 };
 
+let _pendingQuoteSend=null; // holds quote data while composer is open
+
 window.sendQuote=async function(){
   const quotes=loadQuotes();const idx=quotes.findIndex(q=>q.id===editingQuoteId);if(idx<0)return;
   const q=quotes[idx];
-
   const sigUrl=`${window.location.origin}/.netlify/functions/sign?q=${q.id}`;
   const enrichedItems=(q.lineItems||[]).map(li=>{
     const p=state.data.products.find(x=>x.id===li.productId);
     return{...li,productName:p?.name||'',sku:p?.sku||''};
   });
   const attachmentNames=(q.attachments||[]).map(a=>a.name);
-  const attachmentNote=attachmentNames.length?`\n\nFiles to attach:\n${attachmentNames.map(n=>'  • '+n).join('\n')}`:'';
+  const emailSubject=`Quote ${q.number} — Please Review & Sign`;
+  const salesperson=state.currentUser?.firstName+(state.currentUser?.lastName?' '+state.currentUser.lastName:'');
+  const attachNote=attachmentNames.length?`\n\nAttached files:\n${attachmentNames.map(n=>'  • '+n).join('\n')}`:'';
+  const emailBody=`Dear ${q.customerName},\n\nThank you for your interest in Cask & Stream. Please find attached Quote ${q.number} for ${q.currency||'USD'} ${fmtMoney(q.total)}.${attachNote}\n\nTo confirm your order, please sign electronically using the link below:\n\n${sigUrl}\n\n${q.notes?q.notes+'\n\n':''}Please don't hesitate to reach out with any questions.\n\nBest regards,\n${salesperson}\nCask & Stream\nGolf Sign and Design`;
 
-  const emailSubject=`Quote ${q.number} — Action Required: Please Sign`;
-  const emailBody=`Dear ${q.customerName},\n\nThank you for considering Cask & Stream. Please find Quote ${q.number} for ${q.currency||'USD'} ${fmtMoney(q.total)} attached as a PDF.${attachmentNote}\n\nTo confirm your order, please review the quote and sign electronically at the link below:\n\n  ${sigUrl}\n\n${q.notes?q.notes+'\n\n':''}If you have any questions, please don't hesitate to reach out.\n\nThank you,\n${state.currentUser?.firstName||''}\nCask & Stream`;
+  // Store for use after modal closes
+  _pendingQuoteSend={q,enrichedItems,emailSubject,emailBody,attachmentNames,idx};
 
-  const updatedQ={...q,status:'sent',lineItems:enrichedItems,sigUrl,updatedAt:new Date().toISOString(),
-    emailLog:[...(q.emailLog||[]),{
-      sentAt:new Date().toISOString(),
-      sentBy:state.currentUser?.firstName+(state.currentUser?.lastName?' '+state.currentUser.lastName:''),
-      to:q.customerEmail,subject:emailSubject,body:emailBody,
-    }]
-  };
+  // Pre-fill composer
+  document.getElementById('ec-to').value=q.customerEmail||'';
+  document.getElementById('ec-from').value=salesperson;
+  document.getElementById('ec-subject').value=emailSubject;
+  document.getElementById('ec-body').value=emailBody;
+  const noteEl=document.getElementById('ec-attachment-note');
+  if(attachmentNames.length){
+    noteEl.style.display='block';
+    noteEl.innerHTML=`📎 <strong>Remember to attach:</strong> The PDF quote + ${attachmentNames.map(n=>`<strong>${n}</strong>`).join(', ')}`;
+  }else{
+    noteEl.style.display='block';
+    noteEl.innerHTML=`📎 <strong>Remember to attach</strong> the PDF quote (click ⬇ PDF in the quote footer first to save it)`;
+  }
 
-  // ── Open PDF synchronously (must be before any await) ──
-  const pdfHtml=buildPDFHtml(updatedQ);
+  // Open PDF in new tab immediately (sync, no await needed)
+  const pdfHtml=buildPDFHtml({...q,lineItems:enrichedItems,sigUrl});
   const blob=new Blob([pdfHtml],{type:'text/html'});
   const pdfUrl=URL.createObjectURL(blob);
   window.open(pdfUrl,'_blank');
   setTimeout(()=>URL.revokeObjectURL(pdfUrl),5000);
 
-  // ── Copy email to clipboard ──
-  const fullText=`TO: ${q.customerEmail}\nSUBJECT: ${emailSubject}\n\n${emailBody}`;
-  try{
-    await navigator.clipboard.writeText(fullText);
-    showSendInstructions(emailSubject,q.customerEmail,attachmentNames);
-  }catch(e){
-    // Fallback: show in a textarea they can copy manually
-    showSendInstructions(emailSubject,q.customerEmail,attachmentNames,fullText);
-  }
-
-  // ── Save ──
-  quotes[idx]=updatedQ;
-  saveQuotes(quotes);
-  localStorage.setItem('arc_products_cache',JSON.stringify(state.data.products||[]));
-  try{await saveToGitHub('quotes',quotes);}
-  catch(e){toast('Warning: GitHub save failed — sig page may not work','error',5000);}
-
-  closeQuoteModal();renderQuotes();
+  // Close quote modal and open email composer
+  closeQuoteModal();
+  document.getElementById('email-composer-modal').style.display='flex';
 };
 
-function showSendInstructions(subject,to,attachments,fallbackText){
-  // Create a floating instruction card
-  const existing=document.getElementById('send-instructions-card');
-  if(existing)existing.remove();
-  const card=document.createElement('div');
-  card.id='send-instructions-card';
-  card.style.cssText='position:fixed;bottom:80px;right:24px;background:var(--bg2);border:1px solid var(--accent);border-radius:var(--r2);padding:20px;max-width:360px;z-index:9998;box-shadow:0 8px 32px rgba(0,0,0,0.4)';
-  card.innerHTML=`
-    <div style="font-size:13px;font-weight:600;color:var(--accent);margin-bottom:10px">📋 Email ready to send</div>
-    <div style="font-size:12px;color:var(--text2);line-height:1.7;margin-bottom:12px">
-      <div>✓ PDF opened in new tab</div>
-      <div>✓ Email text copied to clipboard</div>
-      ${attachments.length?`<div style="margin-top:4px;color:var(--text3)">Also attach: ${attachments.map(a=>`<strong>${a}</strong>`).join(', ')}</div>`:''}
-    </div>
-    <div style="font-size:12px;color:var(--text3);margin-bottom:12px;line-height:1.6">
-      1. Open Outlook → New Email<br>
-      2. To: <strong style="color:var(--text)">${to}</strong><br>
-      3. Subject: <strong style="color:var(--text)">${subject}</strong><br>
-      4. Paste body (Ctrl+V)<br>
-      5. Attach the PDF + any files<br>
-      6. Send
-    </div>
-    ${fallbackText?`<textarea style="width:100%;height:80px;background:var(--bg3);border:0.5px solid var(--border2);color:var(--text);padding:8px;border-radius:var(--r);font-size:11px;resize:none;margin-bottom:10px">${fallbackText}</textarea>`:''}
-    <div style="display:flex;gap:8px">
-      <button onclick="navigator.clipboard.writeText(document.querySelector('#send-instructions-card textarea')?.value||'').then(()=>toast('Copied','success'))" style="padding:6px 12px;background:var(--accent-dim);color:var(--accent);border:0.5px solid var(--accent);border-radius:var(--r);cursor:pointer;font-size:12px;font-family:var(--font-body);${fallbackText?'':'display:none'}">Copy Again</button>
-      <button onclick="document.getElementById('send-instructions-card').remove()" style="padding:6px 12px;background:var(--bg3);color:var(--text2);border:0.5px solid var(--border2);border-radius:var(--r);cursor:pointer;font-size:12px;font-family:var(--font-body);margin-left:auto">Dismiss</button>
-    </div>`;
-  document.body.appendChild(card);
-  // Auto-dismiss after 60s
-  setTimeout(()=>card.remove(),60000);
-}
+window.copyEmailToClipboard=async function(){
+  const subject=document.getElementById('ec-subject').value;
+  const to=document.getElementById('ec-to').value;
+  const body=document.getElementById('ec-body').value;
+  const full=`TO: ${to}\nSUBJECT: ${subject}\n\n${body}`;
+  try{
+    await navigator.clipboard.writeText(full);
+    const btn=document.getElementById('ec-copy-btn');
+    btn.textContent='✓ Copied!';btn.style.color='var(--green)';
+    setTimeout(()=>{btn.textContent='📋 Copy All to Clipboard';btn.style.color='';},2500);
+    toast('Email copied to clipboard — paste into Outlook (Ctrl+V)','success',5000);
+  }catch(e){toast('Copy failed — select all text manually','error');}
+};
+
+window.openOutlookWeb=function(){
+  const to=encodeURIComponent(document.getElementById('ec-to').value);
+  const subject=encodeURIComponent(document.getElementById('ec-subject').value);
+  const body=encodeURIComponent(document.getElementById('ec-body').value);
+  // Outlook web compose URL
+  window.open(`https://outlook.office.com/mail/deeplink/compose?to=${to}&subject=${subject}&body=${body}`,'_blank');
+};
+
+window.confirmEmailSent=async function(){
+  if(!_pendingQuoteSend)return;
+  const{q,enrichedItems,emailSubject,emailBody,attachmentNames,idx}=_pendingQuoteSend;
+  const sigUrl=`${window.location.origin}/.netlify/functions/sign?q=${q.id}`;
+  const quotes=loadQuotes();
+  const updatedQ={...q,status:'sent',lineItems:enrichedItems,sigUrl,updatedAt:new Date().toISOString(),
+    emailLog:[...(q.emailLog||[]),{
+      sentAt:new Date().toISOString(),
+      sentBy:state.currentUser?.firstName+(state.currentUser?.lastName?' '+state.currentUser.lastName:''),
+      to:document.getElementById('ec-to').value,
+      subject:document.getElementById('ec-subject').value,
+      body:document.getElementById('ec-body').value,
+    }]
+  };
+  if(idx>-1)quotes[idx]=updatedQ;
+  saveQuotes(quotes);
+  _pendingQuoteSend=null;
+  localStorage.setItem('arc_products_cache',JSON.stringify(state.data.products||[]));
+  try{await saveToGitHub('quotes',quotes);}
+  catch(e){toast('GitHub save warning: '+e.message,'error',4000);}
+  document.getElementById('email-composer-modal').style.display='none';
+  toast('Quote marked as sent — awaiting customer signature','success');
+  renderQuotes();
+};
 
 window.pushQuoteToKatana=async function(){
   const q=loadQuotes().find(x=>x.id===editingQuoteId);if(!q)return;
