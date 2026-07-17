@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "arcCRM Netlify functions",
   "dependencies": {
-    "xlsx": "^0.18.5"
+    "xlsx": "^0.18.5",
+    "nodemailer": "^6.9.0"
   }
 }

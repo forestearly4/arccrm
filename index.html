@@ -1111,17 +1111,16 @@ window.confirmClearProducts=function(){
 // ══════════════════════════════════════════════════
 function renderInventory(){
   let items=state.data.inventory;
-  if(state.search)items=items.filter(i=>(i.name||'').toLowerCase().includes(state.search));
+  if(state.search)items=items.filter(i=>(i.name||'').toLowerCase().includes(state.search)||(i.color||'').toLowerCase().includes(state.search)||(i.size||'').toLowerCase().includes(state.search));
   const lastSync=state.lastKatanaSync?new Date(state.lastKatanaSync).toLocaleString():'Never';
-  // Default filter to plastic materials
   const showAll=state.inventoryShowAll||false;
-  const plasticItems=items.filter(i=>(i.name||'').toLowerCase().includes('plastic'));
+  const plasticItems=items.filter(i=>(i.material_name||i.name||'').toLowerCase().includes('plastic'));
   const displayItems=showAll?items:plasticItems;
   rc(`
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
       <div>
-        <div style="font-size:12px;color:var(--text3)">Last Katana sync: ${lastSync}</div>
-        <div style="font-size:11px;color:var(--text3);margin-top:2px">Raw materials · calculated stock = in stock − committed + expected</div>
+        <div style="font-size:12px;color:var(--text3)">Last sync: ${lastSync}</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:2px">Calculated = In Stock − Committed + Expected</div>
       </div>
       <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
         <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer">
@@ -1131,31 +1130,35 @@ function renderInventory(){
       </div>
     </div>
     <div style="font-size:12px;color:var(--text3);margin-bottom:12px">
-      Showing <strong style="color:var(--text)">${displayItems.length}</strong> ${showAll?'total':'plastic'} material${displayItems.length!==1?'s':''}
-      ${!showAll&&plasticItems.length<items.length?` (${items.length} total — check "Show all materials" to see everything)`:''}
+      <strong style="color:var(--text)">${displayItems.length}</strong> ${showAll?'total':'plastic'} variant${displayItems.length!==1?'s':''}
+      ${!showAll&&plasticItems.length<items.length?` of ${items.length} total materials`:''}
     </div>
     <div class="card"><div class="table-wrap"><table><thead><tr>
-      <th>Material Name</th>
+      <th>Material</th>
+      <th>Color</th>
+      <th>Size</th>
+      <th>Supplier</th>
       <th style="text-align:right">In Stock</th>
       <th style="text-align:right">Committed</th>
       <th style="text-align:right">Expected</th>
-      <th style="text-align:right">Calculated Stock</th>
+      <th style="text-align:right">Calculated</th>
       <th>Unit</th>
-      <th>Category</th>
     </tr></thead><tbody>
       ${displayItems.length?displayItems.map(i=>{
         const calc=i.calculated??0;
-        const calcBadgeClass=calc>0?'badge-green':calc<0?'badge-red':'badge-gray';
+        const calcClass=calc>0?'badge-green':calc<0?'badge-red':'badge-gray';
         return`<tr>
-          <td style="font-weight:500;max-width:340px">${i.name||'—'}</td>
-          <td style="font-family:var(--font-mono);text-align:right;color:var(--text2)">${i.in_stock??'—'}</td>
-          <td style="font-family:var(--font-mono);text-align:right;color:var(--text3)">${i.committed??'—'}</td>
-          <td style="font-family:var(--font-mono);text-align:right;color:var(--text3)">${i.expected??'—'}</td>
-          <td style="text-align:right"><span class="badge ${calcBadgeClass}">${calc}</span></td>
+          <td style="font-weight:500;color:var(--text2);font-size:12px">${i.material_name||i.name||'—'}</td>
+          <td style="font-size:12px">${i.color||'—'}</td>
+          <td style="font-family:var(--font-mono);font-size:11px;color:var(--text3)">${i.size||'—'}</td>
+          <td style="font-size:11px;color:var(--text3)">${i.supplier||'—'}</td>
+          <td style="font-family:var(--font-mono);text-align:right;color:var(--text2)">${i.in_stock??'0'}</td>
+          <td style="font-family:var(--font-mono);text-align:right;color:var(--text3)">${i.committed??'0'}</td>
+          <td style="font-family:var(--font-mono);text-align:right;color:var(--text3)">${i.expected??'0'}</td>
+          <td style="text-align:right"><span class="badge ${calcClass}">${calc}</span></td>
           <td style="color:var(--text3);font-size:12px">${i.uom||'—'}</td>
-          <td style="color:var(--text3);font-size:12px">${i.category||'—'}</td>
         </tr>`;
-      }).join(''):`<tr><td colspan="7" style="color:var(--text3);text-align:center;padding:40px">No materials — click Sync Now.</td></tr>`}
+      }).join(''):`<tr><td colspan="9" style="color:var(--text3);text-align:center;padding:40px">No data — click Sync Now.</td></tr>`}
     </tbody></table></div></div>`);
 }
 
@@ -1353,7 +1356,11 @@ function renderApiSettings(){
     <div class="form-section">
       <div class="form-section-title">Netlify Environment Variables</div>
       <div style="background:var(--bg3);border-radius:var(--r);padding:14px 16px;font-size:12px;font-family:var(--font-mono);line-height:2;color:var(--text2)">
-        KATANA_API_KEY<br>CLICKUP_API_KEY<br>CLICKUP_SPACE_ID<br>GITHUB_TOKEN<br>GITHUB_REPO<br>GITHUB_BRANCH
+        KATANA_API_KEY · CLICKUP_API_KEY · CLICKUP_SPACE_ID<br>GITHUB_TOKEN · GITHUB_REPO · GITHUB_BRANCH<br><br>
+        <span style="color:var(--accent);font-size:11px">Email Notifications:</span><br>
+        SMTP_USER · SMTP_PASS · SMTP_FROM<br><br>
+        <span style="color:var(--accent);font-size:11px">Production ClickUp:</span><br>
+        CLICKUP_PRODUCTION_LIST_ID
       </div>
       <div style="font-size:11px;color:var(--text3);margin-top:8px">Set these in Netlify → Site configuration → Environment variables</div>
     </div>
@@ -1920,6 +1927,7 @@ window.saveQuote=function(newStatus){
     subtotal:sub,total:sub*(1+tax/100),
     createdBy:state.currentUser?.id,
     createdByName:state.currentUser?.firstName+(state.currentUser?.lastName?' '+state.currentUser.lastName:''),
+    createdByEmail:state.currentUser?.email||'',
     createdAt:existing?.createdAt||new Date().toISOString(),
     updatedAt:new Date().toISOString(),
     katanaOrderId:existing?.katanaOrderId,katanaOrderNumber:existing?.katanaOrderNumber,

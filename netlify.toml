@@ -29,3 +29,7 @@
 # DROPBOX_TOKEN          — (alternative) short-lived access token
 # DROPBOX_PRICING_PATH   — (optional) default: /arccrm/pricing.xlsx
 # DROPBOX_CUSTOMERS_PATH — (optional) default: /arccrm/customers.xlsx
+# SMTP_USER                   — Office 365 email (e.g. you@yourdomain.com)
+# SMTP_PASS                   — Office 365 password or app password
+# SMTP_FROM                   — Sender (e.g. "arcCRM <you@domain.com>")
+# CLICKUP_PRODUCTION_LIST_ID  — ClickUp list ID for production tasks
