@@ -6,7 +6,7 @@
       "customerId": "c_1784147663825",
       "customerName": "Jeffrey Burke",
       "customerEmail": "jeff@golfsignco.com",
-      "status": "sent",
+      "status": "signed",
       "lineItems": [
         {
           "id": "li_1784234828899",
@@ -32,7 +32,7 @@
       "createdBy": "admin_0",
       "createdByName": "Forest",
       "createdAt": "2026-07-16T20:47:36.484Z",
-      "updatedAt": "2026-07-16T21:03:06.711Z",
+      "updatedAt": "2026-07-17T19:32:22.605Z",
       "sigUrl": "https://arcrm.netlify.app/.netlify/functions/sign?q=q_1784234856484",
       "emailLog": [
         {
@@ -49,8 +49,14 @@
           "subject": "Quote Q-0001 — Please Review & Sign",
           "body": "Dear Jeffrey Burke,\n\nThank you for your interest in Cask & Stream. Please find attached Quote Q-0001 for USD $4,000.00.\n\nTo confirm your order, please sign electronically using the link below:\n\nhttps://arcrm.netlify.app/.netlify/functions/sign?q=q_1784234856484\n\nPlease don't hesitate to reach out with any questions.\n\nBest regards,\nForest\nCask & Stream\nGolf Sign and Design"
         }
-      ]
+      ],
+      "signature": {
+        "name": "Jeffrey Burke",
+        "email": "jeff@golfsignco.com",
+        "signedAt": "2026-07-17T19:32:22.604Z",
+        "ip": "recorded"
+      }
     }
   ],
-  "updated_at": "2026-07-16T21:03:07.699Z"
+  "updated_at": "2026-07-17T19:32:22.756Z"
 }
