@@ -41,6 +41,20 @@ async function saveSignature(quoteId, signerName, signerEmail) {
     updatedAt: new Date().toISOString(),
   };
   await writeGitHubFile("quotes.json", { quotes });
+
+  // ── Trigger post-sign automation (non-blocking) ──
+  // Fire and forget — don't let automation failures block the success page
+  const siteUrl = process.env.URL || process.env.DEPLOY_URL || "http://localhost:8888";
+  fetch(`${siteUrl}/.netlify/functions/post-sign-automation`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ quoteId }),
+  }).then(r => r.json()).then(d => {
+    console.log("Post-sign automation:", JSON.stringify(d));
+  }).catch(err => {
+    console.error("Post-sign automation failed:", err.message);
+  });
+
   return quotes[idx];
 }
 
