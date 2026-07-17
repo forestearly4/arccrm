@@ -2,11 +2,12 @@
 
 [build]
   publish = "."
+  command = "cd netlify/functions && npm install"
 
 [functions]
   directory = "netlify/functions"
-  node_bundler = "esbuild"
-  included_files = ["netlify/functions/package.json"]
+  node_bundler = "nft"
+  included_files = ["netlify/functions/node_modules/**"]
 
 # Hourly Katana sync
 [functions.sync]
