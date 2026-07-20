@@ -1185,6 +1185,14 @@
       "calculated": 0
     },
     {
+      "id": 17608986,
+      "name": "MIRROR",
+      "category": "",
+      "uom": "pcs",
+      "in_stock": 0,
+      "calculated": 0
+    },
+    {
       "id": 13964588,
       "name": "Nylon Washer",
       "category": "Furniture Hardware",
@@ -1219,14 +1227,6 @@
     {
       "id": 14776052,
       "name": "Pan Phillips Head Screw / Stainless Steel / #8 x 1 1/4\"",
-      "category": "Furniture Hardware",
-      "uom": "pcs",
-      "in_stock": 0,
-      "calculated": 0
-    },
-    {
-      "id": 13964581,
-      "name": "Pan Phillips Heads Screw",
       "category": "Furniture Hardware",
       "uom": "pcs",
       "in_stock": 0,
@@ -4253,5 +4253,5 @@
       "delivery_date": "2026-05-27T19:23:31.546Z"
     }
   ],
-  "updated_at": "2026-07-20T15:01:42.250Z"
+  "updated_at": "2026-07-20T16:07:17.530Z"
 }
