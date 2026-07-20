@@ -2294,7 +2294,7 @@
       "id": 48189665,
       "customer_id": 83719357,
       "customer_name": "",
-      "status": "NOT_SHIPPED",
+      "status": "DELIVERED",
       "total": 15990,
       "created_at": "2026-07-01T17:09:41.927Z",
       "delivery_date": "2026-08-26T17:09:36.227Z"
@@ -2384,7 +2384,7 @@
       "id": 47704212,
       "customer_id": 109838929,
       "customer_name": "",
-      "status": "NOT_SHIPPED",
+      "status": "DELIVERED",
       "total": 1730,
       "created_at": "2026-06-23T14:09:04.979Z",
       "delivery_date": "2026-08-18T14:08:56.941Z"
@@ -4253,5 +4253,5 @@
       "delivery_date": "2026-05-27T19:23:31.546Z"
     }
   ],
-  "updated_at": "2026-07-20T20:11:31.792Z"
+  "updated_at": "2026-07-20T21:10:35.472Z"
 }
