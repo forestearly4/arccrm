@@ -2003,6 +2003,15 @@
   ],
   "sales_orders": [
     {
+      "id": 49259999,
+      "customer_id": 85127571,
+      "customer_name": "",
+      "status": "PENDING",
+      "total": 1825,
+      "created_at": "2026-07-22T19:28:24.293Z",
+      "delivery_date": "2026-09-16T19:28:24.267Z"
+    },
+    {
       "id": 49203050,
       "customer_id": 73466124,
       "customer_name": "",
@@ -4242,16 +4251,7 @@
       "total": 80,
       "created_at": "2026-04-02T18:14:18.901Z",
       "delivery_date": "2026-05-28T18:14:18.809Z"
-    },
-    {
-      "id": 42925535,
-      "customer_id": 70179204,
-      "customer_name": "",
-      "status": "DELIVERED",
-      "total": 5462.35,
-      "created_at": "2026-04-02T16:52:52.994Z",
-      "delivery_date": "2026-05-28T16:52:47.729Z"
     }
   ],
-  "updated_at": "2026-07-22T19:05:43.513Z"
+  "updated_at": "2026-07-22T20:05:16.782Z"
 }
