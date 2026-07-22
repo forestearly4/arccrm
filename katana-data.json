@@ -1178,8 +1178,8 @@
     },
     {
       "id": 17608986,
-      "name": "MIRROR",
-      "category": "",
+      "name": "Mirror - 24\" x 48\"",
+      "category": "Furniture Material",
       "uom": "pcs",
       "in_stock": 0,
       "calculated": 0
@@ -4253,5 +4253,5 @@
       "delivery_date": "2026-05-28T18:14:18.809Z"
     }
   ],
-  "updated_at": "2026-07-22T20:05:16.782Z"
+  "updated_at": "2026-07-22T21:03:37.288Z"
 }
