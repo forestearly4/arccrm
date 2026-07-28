@@ -2006,7 +2006,7 @@
       "id": 49571446,
       "customer_id": 70178671,
       "customer_name": "",
-      "status": "NOT_SHIPPED",
+      "status": "DELIVERED",
       "total": 500,
       "created_at": "2026-07-28T15:30:58.408Z",
       "delivery_date": "2026-09-22T15:30:48.102Z"
@@ -2123,7 +2123,7 @@
       "id": 49199195,
       "customer_id": 72900929,
       "customer_name": "",
-      "status": "NOT_SHIPPED",
+      "status": "DELIVERED",
       "total": 1370,
       "created_at": "2026-07-21T14:31:50.726Z",
       "delivery_date": "2026-09-15T14:31:42.652Z"
@@ -2159,7 +2159,7 @@
       "id": 49018172,
       "customer_id": 72900929,
       "customer_name": "",
-      "status": "NOT_SHIPPED",
+      "status": "DELIVERED",
       "total": 1123.5,
       "created_at": "2026-07-17T14:18:59.776Z",
       "delivery_date": "2026-09-11T14:14:51.176Z"
@@ -2177,7 +2177,7 @@
       "id": 48964822,
       "customer_id": 108609377,
       "customer_name": "",
-      "status": "NOT_SHIPPED",
+      "status": "DELIVERED",
       "total": 380,
       "created_at": "2026-07-16T13:29:18.249Z",
       "delivery_date": "2026-09-10T13:29:11.162Z"
@@ -2213,7 +2213,7 @@
       "id": 48834352,
       "customer_id": 70178958,
       "customer_name": "",
-      "status": "NOT_SHIPPED",
+      "status": "DELIVERED",
       "total": 0,
       "created_at": "2026-07-13T18:18:14.142Z",
       "delivery_date": "2026-09-07T18:18:06.602Z"
@@ -2276,7 +2276,7 @@
       "id": 48689285,
       "customer_id": 87676362,
       "customer_name": "",
-      "status": "NOT_SHIPPED",
+      "status": "DELIVERED",
       "total": 4045.5,
       "created_at": "2026-07-10T14:14:18.830Z",
       "delivery_date": "2026-09-04T14:14:06.410Z"
@@ -2312,7 +2312,7 @@
       "id": 48631881,
       "customer_id": 98104251,
       "customer_name": "",
-      "status": "NOT_SHIPPED",
+      "status": "DELIVERED",
       "total": 0,
       "created_at": "2026-07-09T13:59:44.473Z",
       "delivery_date": "2026-09-03T13:59:33.350Z"
@@ -2348,7 +2348,7 @@
       "id": 48534818,
       "customer_id": 99785852,
       "customer_name": "",
-      "status": "NOT_SHIPPED",
+      "status": "DELIVERED",
       "total": 0,
       "created_at": "2026-07-07T18:26:08.909Z",
       "delivery_date": "2026-09-01T18:25:59.471Z"
@@ -2375,7 +2375,7 @@
       "id": 48519572,
       "customer_id": 70179359,
       "customer_name": "",
-      "status": "NOT_SHIPPED",
+      "status": "DELIVERED",
       "total": 2750,
       "created_at": "2026-07-07T12:44:36.681Z",
       "delivery_date": "2026-07-28T12:44:00.000Z"
@@ -2384,7 +2384,7 @@
       "id": 48518574,
       "customer_id": 96292451,
       "customer_name": "",
-      "status": "NOT_SHIPPED",
+      "status": "DELIVERED",
       "total": 0,
       "created_at": "2026-07-07T12:11:16.233Z",
       "delivery_date": "2026-09-15T12:10:00.000Z"
@@ -2438,7 +2438,7 @@
       "id": 48120989,
       "customer_id": 70179435,
       "customer_name": "",
-      "status": "NOT_SHIPPED",
+      "status": "DELIVERED",
       "total": 1180,
       "created_at": "2026-06-30T13:34:36.802Z",
       "delivery_date": "2026-08-25T13:33:58.986Z"
@@ -2483,7 +2483,7 @@
       "id": 47798012,
       "customer_id": 70179019,
       "customer_name": "",
-      "status": "NOT_SHIPPED",
+      "status": "DELIVERED",
       "total": 178.75,
       "created_at": "2026-06-24T18:55:26.085Z",
       "delivery_date": "2026-08-19T18:55:18.630Z"
@@ -2564,7 +2564,7 @@
       "id": 47441232,
       "customer_id": 90282797,
       "customer_name": "",
-      "status": "NOT_SHIPPED",
+      "status": "DELIVERED",
       "total": 2880,
       "created_at": "2026-06-18T18:35:57.968Z",
       "delivery_date": "2026-08-13T18:35:51.229Z"
@@ -2690,7 +2690,7 @@
       "id": 47000403,
       "customer_id": 70179019,
       "customer_name": "",
-      "status": "NOT_SHIPPED",
+      "status": "DELIVERED",
       "total": 1592.5,
       "created_at": "2026-06-11T15:49:37.361Z",
       "delivery_date": "2026-08-06T15:49:29.781Z"
@@ -2861,7 +2861,7 @@
       "id": 46209927,
       "customer_id": 108643945,
       "customer_name": "",
-      "status": "NOT_SHIPPED",
+      "status": "DELIVERED",
       "total": 0,
       "created_at": "2026-06-01T15:01:22.528Z",
       "delivery_date": "2026-07-27T15:01:15.076Z"
@@ -4253,5 +4253,5 @@
       "delivery_date": "2026-06-01T18:33:58.702Z"
     }
   ],
-  "updated_at": "2026-07-28T20:05:47.202Z"
+  "updated_at": "2026-07-28T21:03:48.499Z"
 }
