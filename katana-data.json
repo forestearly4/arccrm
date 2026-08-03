@@ -2003,6 +2003,33 @@
   ],
   "sales_orders": [
     {
+      "id": 49882299,
+      "customer_id": 73466124,
+      "customer_name": "",
+      "status": "NOT_SHIPPED",
+      "total": 12128.45,
+      "created_at": "2026-08-03T17:48:00.848Z",
+      "delivery_date": "2026-09-28T17:47:54.494Z"
+    },
+    {
+      "id": 49881991,
+      "customer_id": 70179422,
+      "customer_name": "",
+      "status": "NOT_SHIPPED",
+      "total": 5295,
+      "created_at": "2026-08-03T17:40:28.435Z",
+      "delivery_date": "2026-09-28T17:40:18.469Z"
+    },
+    {
+      "id": 49881388,
+      "customer_id": 70179408,
+      "customer_name": "",
+      "status": "NOT_SHIPPED",
+      "total": 3135.1,
+      "created_at": "2026-08-03T17:25:51.797Z",
+      "delivery_date": "2026-09-28T17:25:37.960Z"
+    },
+    {
       "id": 49873446,
       "customer_id": 111215179,
       "customer_name": "",
@@ -2376,7 +2403,7 @@
       "customer_id": 70179171,
       "customer_name": "",
       "status": "NOT_SHIPPED",
-      "total": 6080,
+      "total": 6040,
       "created_at": "2026-07-09T14:37:49.289Z",
       "delivery_date": "2026-09-03T14:37:43.117Z"
     },
@@ -4224,34 +4251,7 @@
       "total": 4687.5,
       "created_at": "2026-04-09T18:48:14.453Z",
       "delivery_date": "2026-06-10T18:48:00.000Z"
-    },
-    {
-      "id": 43257503,
-      "customer_id": 70179019,
-      "customer_name": "",
-      "status": "DELIVERED",
-      "total": 1491.75,
-      "created_at": "2026-04-09T18:36:24.501Z",
-      "delivery_date": "2026-06-04T18:36:02.966Z"
-    },
-    {
-      "id": 43257094,
-      "customer_id": 102690867,
-      "customer_name": "",
-      "status": "PENDING",
-      "total": 595,
-      "created_at": "2026-04-09T18:25:08.444Z",
-      "delivery_date": "2026-06-04T18:24:07.274Z"
-    },
-    {
-      "id": 43253528,
-      "customer_id": 102637763,
-      "customer_name": "",
-      "status": "PENDING",
-      "total": 43880.45625,
-      "created_at": "2026-04-09T16:50:55.884Z",
-      "delivery_date": "2026-06-04T16:50:51.413Z"
     }
   ],
-  "updated_at": "2026-08-03T17:00:50.230Z"
+  "updated_at": "2026-08-03T18:00:49.910Z"
 }
