@@ -2016,7 +2016,7 @@
       "customer_id": 101396774,
       "customer_name": "",
       "status": "NOT_SHIPPED",
-      "total": 24110,
+      "total": 55878.55,
       "created_at": "2026-07-31T17:33:54.439Z",
       "delivery_date": "2026-09-25T17:33:40.079Z"
     },
@@ -4253,5 +4253,5 @@
       "delivery_date": "2026-06-04T02:29:05.942Z"
     }
   ],
-  "updated_at": "2026-08-03T14:00:56.670Z"
+  "updated_at": "2026-08-03T15:01:01.441Z"
 }
